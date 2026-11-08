@@ -2,6 +2,45 @@
 
 A personal app for downloading Lucas's and Grace's hockey games from LiveBarn (PANO view), saving them to Google Drive, and clipping highlights to keep or share. Built in stages; see the build plan in the Family Watch Party project.
 
+Live site: https://scalisec.github.io/family-watch-party/
+
+## The LiveBarn helper (Chrome extension)
+
+The helper is the only part that touches LiveBarn. It uses your own signed-in LiveBarn account and LiveBarn's own Download button, one game at a time, only when you ask.
+
+### What it can do (its permissions)
+
+| Permission | Why |
+| --- | --- |
+| `downloads` | To give the game files LiveBarn downloads tidy names and a folder (`Downloads/FamilyWatchParty/<kid>/<date and game>/`). It only renames files coming from LiveBarn's media host, and never starts a download by itself. |
+| `https://watch.livebarn.com/*` | To press LiveBarn's buttons on the game page: PANO, Download › 30 minute clip, and the files that overlap the game. |
+| Talks only to `https://scalisec.github.io` | Only the Family Watch Party site can send it requests (`externally_connectable`, and the background worker checks the sender's address). Any other website is ignored. |
+
+It has no access to other websites, your browsing history, cookies, passwords or other tabs, makes no network requests of its own, and loads no code from the internet.
+
+### Install (while it's in testing)
+
+1. Download this repository (**Code › Download ZIP** on GitHub) and unzip it somewhere you'll keep it, e.g. `Documents\family-watch-party`.
+2. In Chrome, go to `chrome://extensions`.
+3. Turn on **Developer mode** (top right).
+4. Press **Load unpacked** and choose the `extension` folder inside the unzipped repository.
+5. "Family Watch Party – LiveBarn helper" appears in the list. Its ID should be `ihlieolhaepnpncmgebcejlabomnifmi`.
+
+To update it later: replace the folder with the new version, then press the reload arrow on the helper's card in `chrome://extensions`.
+
+Once it's stable, it can move to the Chrome Web Store as an unlisted extension, and Developer mode can be switched off.
+
+### What it does for one game
+
+1. Opens the game on LiveBarn at the right rink, date and 30-minute window.
+2. Switches the player to **PANO**.
+3. Opens **Download › 30 minute clip** and reads the list of recording files and your minutes used.
+4. Checks the files are PANO ones; if LiveBarn offers AUTO files instead, it stops without downloading.
+5. Presses **Download** on each file that overlaps the game, one at a time, waiting for each to start. It never presses the same file twice, and stops if one doesn't start.
+6. Moves to the next 30-minute window until the game is covered, then closes the LiveBarn tab. Chrome finishes the downloads in the background.
+
+A **dry run** does steps 1–4 and reports what it would download, using none of your minutes.
+
 ## Run locally
 
 Any static file server works, for example:
@@ -10,7 +49,7 @@ Any static file server works, for example:
 npx serve .
 ```
 
-Then open `http://localhost:3000`.
+Then open `http://localhost:3000`. (The helper only talks to the live site, so test it there.)
 
 ## Tests
 
@@ -21,7 +60,7 @@ node --test tests/*.test.mjs
 ## Stages
 
 - [x] Stage 0: app skeleton and the PANO playback check (`pano-check.html`)
-- [ ] Stage 1: LiveBarn helper extension
+- [x] Stage 1: LiveBarn helper extension (`extension/`, test page `helper-test.html`)
 - [ ] Stage 2: home screen and game list
 - [ ] Stage 3: download to Drive
 - [ ] Stage 4: game page and player

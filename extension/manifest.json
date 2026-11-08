@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Family Watch Party – LiveBarn helper",
+  "short_name": "FWP helper",
+  "version": "0.1.0",
+  "description": "Downloads your kids' games from your own LiveBarn account when you ask, for Family Watch Party.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx6DK9vopFFwP1j1m9L9HNT9EgrJuSoRBmExrJzkWVRFSRWYKQeuWAt7bzdEK31JutlwILAZQhFtt0XljWTLm2K9f/Q2/waZQ8J9gpfgJKw4UyHGHK6vvf2OzTRf2U6du0etFL6P6gECMVfWyZKIjGGToQm3SJathvjnpnc5eH6B5MdIEwtaKJD0jiit5oExuY9N8Ubw/VbcIiwCd2BY9orx471znayKYKcYY24zzPT9WbA/fSJ9ZG8Ri7ouzqiPglRa+QHdRHJCtvuJtrDvRhT/WIedCD/cmDBwzYdpy9QG2evQTrpArrE0w8dlq/NcgncJIJHqlStzQtKrUZBX0oQIDAQAB",
+  "permissions": ["downloads"],
+  "host_permissions": ["https://watch.livebarn.com/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://watch.livebarn.com/*"],
+      "js": ["lib/plan.js", "livebarn.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "externally_connectable": {
+    "matches": ["https://scalisec.github.io/*"]
+  },
+  "minimum_chrome_version": "116"
+}
