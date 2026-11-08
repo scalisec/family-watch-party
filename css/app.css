@@ -1,0 +1,91 @@
+/* Family Watch Party — Bench Boss Labs design tokens (dark theme default) */
+:root {
+  --navy: #07142A;
+  --ground: #0B1B31;
+  --surface: #12263F;
+  --surface-2: #18304E;
+  --field: #0B1B31;
+  --ink: #EEF3FA;
+  --muted: #A9B8CC;
+  --on-navy: #C9D6E8;
+  --line: #24406A;
+  --line-strong: #33557F;
+  --accent: #078DFF;
+  --on-accent: #0B1B31;
+  --accent-hover: #3AA4FF;
+  --accent-soft: rgba(7, 141, 255, .16);
+  --accent-text: #6CBBFF;
+  --focus: #6CBBFF;
+  --good: #86EFAC;
+  --good-soft: rgba(34, 197, 94, .16);
+  --bad: #FCA5A5;
+  --bad-soft: rgba(239, 68, 68, .16);
+  --work: #FDBA74;
+  --work-soft: rgba(251, 146, 60, .16);
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --tap-min: 44px;
+  --font-display: Montserrat, "Segoe UI", system-ui, sans-serif;
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ground); color: var(--ink); }
+body { font-family: var(--font-sans); font-size: 14px; line-height: 1.45; }
+a { color: var(--accent-text); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.app-header {
+  background: var(--navy); border-bottom: 1px solid var(--line);
+  padding: 10px 24px; display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 12px;
+}
+.lockup { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.app-icon {
+  width: 40px; height: 40px; border-radius: 9px; background: var(--accent); color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 800; font-size: 14px;
+}
+.app-name { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1.1; display: block; }
+.byline { font-size: 11px; font-weight: 500; color: var(--on-navy); letter-spacing: .06em; display: block; }
+.main-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.main-nav a {
+  color: var(--on-navy); font-weight: 600; padding: 10px 14px; border-radius: var(--radius-sm);
+  text-decoration: none; min-height: var(--tap-min); display: inline-flex; align-items: center;
+}
+.main-nav a:hover { background: var(--surface-2); }
+.main-nav a[aria-current="page"] { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+
+main { max-width: 1240px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1.2; }
+h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+
+.btn {
+  min-height: var(--tap-min); padding: 0 16px; border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink);
+  font: 600 14px var(--font-sans); cursor: pointer; display: inline-flex; align-items: center;
+  justify-content: center; gap: 8px; text-decoration: none;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.pill { border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; display: inline-block; }
+.pill-good { background: var(--good-soft); color: var(--good); }
+.pill-work { background: var(--work-soft); color: var(--work); }
+.pill-bad { background: var(--bad-soft); color: var(--bad); }
+.pill-info { background: var(--accent-soft); color: var(--accent-text); }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+table.results { width: 100%; border-collapse: collapse; }
+table.results th, table.results td { text-align: left; padding: 8px; border-top: 1px solid var(--line); vertical-align: top; }
+table.results th { color: var(--muted); font-weight: 600; width: 45%; }
+
+input[type="file"] { color: var(--ink); }
+input[type="range"] { width: 100%; }
+label { font-size: 13px; font-weight: 600; }

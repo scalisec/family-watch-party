@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PANO check · Family Watch Party</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .stage { position: relative; background: var(--navy); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+    .stage video, .stage canvas { display: block; width: 100%; height: auto; }
+    #zoomCanvas { cursor: crosshair; aspect-ratio: 16 / 9; }
+    .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+    pre { white-space: pre-wrap; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; margin: 0; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="lockup" href="index.html">
+      <span class="app-icon" aria-hidden="true">FWP</span>
+      <span>
+        <span class="app-name">Family Watch Party</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.1.0</span>
+      </span>
+    </a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html">Games</a>
+      <a href="#clips">Clips</a>
+      <a href="#settings">Settings</a>
+    </nav>
+  </header>
+
+  <main>
+    <div>
+      <a href="index.html">‹ Back to games</a>
+      <h1>PANO check</h1>
+      <p class="muted">Checks whether a LiveBarn PANO file plays, zooms and exports smoothly in this browser. Nothing leaves your computer.</p>
+    </div>
+
+    <section class="card" aria-labelledby="pick-h">
+      <h2 id="pick-h">1 · Pick the PANO file</h2>
+      <p class="muted">Use the PANO clip you downloaded from LiveBarn (the one ending <strong>T131423.mp4</strong>), usually in your Downloads folder.</p>
+      <div class="row">
+        <label class="btn btn-primary" for="fileInput">Choose video file</label>
+        <input id="fileInput" type="file" accept="video/*" hidden>
+        <span id="fileStatus" class="muted">No file chosen</span>
+      </div>
+    </section>
+
+    <div class="grid-2">
+      <section class="card" aria-labelledby="play-h">
+        <h2 id="play-h">2 · Play and jump</h2>
+        <div class="stage"><video id="video" controls playsinline muted></video></div>
+        <div class="row">
+          <button id="playTest" class="btn btn-primary" type="button" disabled>Play 20 seconds</button>
+          <button id="seekTest" class="btn" type="button" disabled>Test jumping</button>
+        </div>
+        <span id="playStatus" class="small muted">Pick a file first.</span>
+      </section>
+
+      <section class="card" aria-labelledby="zoom-h">
+        <h2 id="zoom-h">3 · Zoom</h2>
+        <div class="stage"><canvas id="zoomCanvas" width="1280" height="720" aria-label="Zoomed view of the video"></canvas></div>
+        <label for="zoom">Zoom <span id="zoomValue">2.0×</span></label>
+        <input id="zoom" type="range" min="1" max="6" step="0.1" value="2">
+        <span class="small muted">Click the zoomed picture to move the centre. It follows the video on the left.</span>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="export-h">
+      <h2 id="export-h">4 · Export a 10-second zoomed clip</h2>
+      <p class="muted">Records 10 seconds from where the video is now, at the zoom above, as a 1280×720 file. Watch it play while it records.</p>
+      <div class="row">
+        <button id="exportTest" class="btn btn-primary" type="button" disabled>Export 10 seconds</button>
+        <a id="exportDownload" class="btn" hidden>Save the test clip</a>
+      </div>
+      <span id="exportStatus" class="small muted">Pick a file first.</span>
+    </section>
+
+    <section class="card" aria-labelledby="results-h">
+      <div class="row" style="justify-content: space-between">
+        <h2 id="results-h">Results</h2>
+        <span id="verdict" class="pill pill-info">Not run yet</span>
+      </div>
+      <table class="results">
+        <tbody>
+          <tr><th scope="row">Picture size</th><td id="rSize">—</td></tr>
+          <tr><th scope="row">Frames dropped while playing</th><td id="rDropped">—</td></tr>
+          <tr><th scope="row">Time to jump to a new spot</th><td id="rSeek">—</td></tr>
+          <tr><th scope="row">Export</th><td id="rExport">—</td></tr>
+        </tbody>
+      </table>
+      <div class="row">
+        <button id="copyResults" class="btn" type="button">Copy results</button>
+        <span id="copyStatus" class="small muted"></span>
+      </div>
+      <p class="small muted">Paste the copied results into the chat so the next stages can be tuned to your PC.</p>
+    </section>
+  </main>
+
+  <script type="module" src="js/pano-check.js"></script>
+</body>
+</html>
