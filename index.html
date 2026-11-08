@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/home.css">
 </head>
 <body>
   <header class="app-header">
@@ -14,7 +15,7 @@
       <span class="app-icon" aria-hidden="true">FWP</span>
       <span>
         <span class="app-name">Family Watch Party</span>
-        <span class="byline">BY BENCH BOSS LABS · V0.2.0</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.3.0</span>
       </span>
     </a>
     <nav class="main-nav" aria-label="Main">
@@ -22,18 +23,81 @@
       <a href="#clips">Clips</a>
       <a href="#settings">Settings</a>
     </nav>
+    <div class="row">
+      <span id="helperChip" class="chip">LiveBarn helper: checking…</span>
+      <span id="driveChip" class="chip">Google Drive: sign-in comes next</span>
+    </div>
   </header>
 
   <main>
-    <h1>Games</h1>
-    <section class="card" aria-labelledby="stage-h">
-      <h2 id="stage-h">Stage 1 of the build</h2>
-      <p>Your game list, downloads to Drive and clip editor arrive over the next stages. For now you can test the LiveBarn helper on one game, and rerun the PANO check any time.</p>
-      <div class="row">
-        <a class="btn btn-primary" href="helper-test.html">Test the LiveBarn helper</a>
-        <a class="btn" href="pano-check.html">Run the PANO check</a>
-      </div>
+    <div class="title-row">
+      <h1>Games</h1>
+      <div id="kidFilter" class="row" role="group" aria-label="Show games for"></div>
+    </div>
+
+    <div class="summary-grid">
+      <section class="card" aria-labelledby="minutes-h">
+        <h2 id="minutes-h" class="card-label">LiveBarn downloads this month</h2>
+        <strong id="minutesValue" class="stat">— of 30 hours</strong>
+        <div class="meter" role="img" aria-label="LiveBarn minutes used"><div id="minutesBar" class="meter-fill" style="width: 0%"></div></div>
+        <span id="minutesNote" class="small muted">Shows your real usage after the helper's first download.</span>
+      </section>
+      <section class="card" aria-labelledby="drive-h">
+        <h2 id="drive-h" class="card-label">Google Drive</h2>
+        <strong class="stat">Not connected yet</strong>
+        <div class="meter" role="img" aria-label="Drive space used"><div class="meter-fill meter-good" style="width: 0%"></div></div>
+        <span class="small muted">Sign-in, importing your existing downloads and the Family Hockey folders come in the next update.</span>
+      </section>
+      <section class="card card-accent" aria-labelledby="ready-h">
+        <h2 id="ready-h" class="card-label">Ready to download</h2>
+        <strong id="readyValue" class="stat">—</strong>
+        <div class="row">
+          <button id="downloadAll" class="btn btn-primary" type="button">Download all ready</button>
+          <button id="downloadSelected" class="btn" type="button">Download selected</button>
+        </div>
+      </section>
+    </div>
+
+    <section id="needsYou" class="needs-you" aria-label="Needs you" hidden>
+      <strong>Needs you</strong>
+      <span id="needsText"></span>
     </section>
+
+    <section aria-labelledby="recent-h" class="stack">
+      <div class="section-head">
+        <h2 id="recent-h">Recent games</h2>
+        <span id="updated" class="small muted">Loading the league schedules…</span>
+      </div>
+      <div class="table-box">
+        <table class="games">
+          <thead>
+            <tr>
+              <th scope="col" class="col-check"><span class="visually-hidden">Select</span></th>
+              <th scope="col">Date</th>
+              <th scope="col">Kid · team</th>
+              <th scope="col">Game</th>
+              <th scope="col">Result</th>
+              <th scope="col">Rink</th>
+              <th scope="col">Video</th>
+              <th scope="col"><span class="visually-hidden">Action</span></th>
+            </tr>
+          </thead>
+          <tbody id="recentBody"></tbody>
+        </table>
+      </div>
+      <button id="showMore" class="btn" type="button" hidden>Show older games</button>
+    </section>
+
+    <section aria-labelledby="up-h" class="stack">
+      <h2 id="up-h">Coming up</h2>
+      <div id="upcoming" class="upcoming-grid"></div>
+    </section>
+
+    <p class="small muted">Testing tools: <a href="helper-test.html">LiveBarn helper test</a> · <a href="pano-check.html">PANO check</a></p>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/home.js"></script>
 </body>
 </html>
