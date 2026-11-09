@@ -66,3 +66,27 @@
 .inline-label select { min-height: 36px; padding: 0 6px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); }
 .inline-label input[type=range] { accent-color: var(--accent); width: 120px; }
 .watch-play { min-width: 76px; }
+
+/* Clip editor */
+.clip-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
+.clip-stage { position: relative; background: #000; border-radius: var(--radius-lg); border: 1px solid var(--line); overflow: hidden; display: flex; justify-content: center; }
+.clip-canvas { display: block; width: 100%; height: auto; cursor: grab; touch-action: none; }
+.clip-stage.tall .clip-canvas { width: auto; height: min(70vh, 720px); }
+.clip-source { position: absolute; width: 2px; height: 2px; opacity: 0; pointer-events: none; left: 0; top: 0; }
+.clip-text-input { position: absolute; transform: translate(-50%, -50%); min-height: 40px; padding: 0 10px; border-radius: var(--radius-sm); border: 2px solid #FFD60A; background: rgba(7, 20, 42, 0.9); color: #FFD60A; font: 700 18px var(--font-sans); width: 220px; }
+.clip-side { gap: 12px; }
+.clip-step { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); }
+.clip-step h3 { margin: 0; font-size: 15px; }
+.clip-step select, .clip-name { min-height: 36px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); font: 14px var(--font-sans); }
+.clip-name { width: 100%; }
+.stack-tight { display: flex; flex-direction: column; gap: 4px; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-item { display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; }
+.chip-item.active { border-color: #FFD60A; }
+.linkish { background: none; border: 0; color: var(--ink); font: inherit; cursor: pointer; padding: 4px 2px; text-decoration: underline; text-underline-offset: 2px; }
+.chip-x { background: none; border: 0; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; min-width: 28px; min-height: 28px; border-radius: 999px; }
+.chip-x:hover { background: var(--surface-2); color: var(--ink); }
+.draw-panel { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.clip-result { border-top: 1px solid var(--line); padding-top: 16px; }
+.clip-result-video { width: 100%; max-height: 60vh; background: #000; border-radius: var(--radius-sm); }
+@media (max-width: 900px) { .clip-grid { grid-template-columns: 1fr; } }

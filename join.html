@@ -21,7 +21,7 @@
       <span class="app-icon" aria-hidden="true">FWP</span>
       <span>
         <span class="app-name">Family Watch Party</span>
-        <span class="byline">BY BENCH BOSS LABS · V0.9.0</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.10.0</span>
       </span>
     </a>
     <nav class="main-nav" aria-label="Main">
@@ -54,7 +54,12 @@
         <div id="watchTabs" class="row" role="group" aria-label="Camera view"></div>
       </div>
       <div id="watchRoot"></div>
+      <div class="row"><button id="makeClipBtn" class="btn btn-primary" type="button">Make a clip from here</button></div>
       <p id="watchNote" class="small muted">Scroll or use the zoom slider to zoom in, then drag to follow the play. Space plays and pauses; the arrow keys jump 5 seconds.</p>
+    </section>
+
+    <section id="clipCard" class="card card-accent" aria-label="Clip editor" hidden>
+      <div id="clipRoot"></div>
     </section>
 
     <section id="partsCard" class="card" aria-labelledby="parts-h" hidden>

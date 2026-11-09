@@ -32,6 +32,9 @@ export function droppedPercent(dropped, total) {
 // First container the browser can record a canvas into, MP4 preferred.
 export function pickRecorderMime(isTypeSupported) {
   const options = [
+    // AAC sound first: plays everywhere, including iPhones
+    'video/mp4;codecs=avc1.640028,mp4a.40.2',
+    'video/mp4;codecs=avc1,mp4a.40.2',
     'video/mp4;codecs=avc1.640028',
     'video/mp4;codecs=avc1',
     'video/mp4',

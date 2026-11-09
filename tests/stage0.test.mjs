@@ -104,7 +104,8 @@ test('droppedPercent', () => {
 });
 
 test('pickRecorderMime prefers MP4, falls back to WebM, handles none', () => {
-  assert.equal(pickRecorderMime(() => true), 'video/mp4;codecs=avc1.640028');
+  assert.equal(pickRecorderMime(() => true), 'video/mp4;codecs=avc1.640028,mp4a.40.2', 'AAC sound first');
+  assert.equal(pickRecorderMime((m) => !m.includes('mp4a')), 'video/mp4;codecs=avc1.640028');
   assert.equal(pickRecorderMime((m) => m.startsWith('video/webm')), 'video/webm;codecs=vp9');
   assert.equal(pickRecorderMime(() => false), '');
   assert.equal(pickRecorderMime(() => { throw new Error('x'); }), '');

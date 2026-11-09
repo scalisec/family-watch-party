@@ -89,7 +89,8 @@ node --test tests/*.test.mjs
 - [x] Import straight from the PC per game (`join.html`) or in bulk (`import.html`): mark puck drop and the final buzzer (or use whole files) before upload, so each game is stored as one file per camera view
 - [x] Watch games: full games stream from Drive into a player on the game page (zoom and drag around the PANO view)
 - [x] Install the app, version and release history in Settings, update check (`js/version.js`, `version.json`)
-- [ ] Clip editor and season highlight reel
+- [x] Clip editor: wide or tall, follow framing, slow motion, freeze-and-draw (spotlight, arrows, circles, text), save to Drive, save or share
+- [ ] Season highlight reel
 - [ ] Stage 3b: download from LiveBarn straight into Drive, and "Pick rink" for games without a LiveBarn link
 - [ ] Stage 4: game page and player
 - [ ] Stage 5: clip editor, save and share

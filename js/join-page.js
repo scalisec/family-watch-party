@@ -14,6 +14,7 @@ import { createMarker, marksValid, lengthOf, markClock, clockText, cutFor } from
 import { prepareJoin, publishJoined, publishClip } from './publish.js';
 import { streamReady, streamUrl } from './stream.js';
 import { createWatcher } from './watch.js';
+import { createClipEditor } from './clip-editor.js';
 
 const gameId = new URLSearchParams(location.search).get('game') || '';
 const VIEWS = ['PANO', 'AUTO', 'Video'];
@@ -36,6 +37,7 @@ const state = {
   watchView: '',
   watcher: null,
   watchingId: '',
+  editor: null,
 };
 
 const showError = (text) => { $('pageError').textContent = text; $('pageError').hidden = !text; };
@@ -272,6 +274,43 @@ async function renderWatch() {
   $('watchRoot').replaceChildren(state.watcher.el);
 }
 
+// ---------- making clips ----------
+function openEditor() {
+  const file = finishedFiles().find((f) => (f.view || 'Video') === state.watchView);
+  if (!file || !state.watcher) { toast('Start watching the game first.'); return; }
+  if (!isConnected()) { toast('Connect Google first.'); return; }
+  const at = state.watcher.video.currentTime || 0;
+  state.watcher.video.pause();
+  if (state.editor) state.editor.close();
+  const clips = ((state.record.games[gameId] || {}).files || []).filter((f) => f.kind === 'clip').length;
+  state.editor = createClipEditor({
+    src: streamUrl(file.driveId, file.size),
+    startSec: Number.isFinite(file.startSec) ? file.startSec : null,
+    at, game: state.game, kid: state.game.kid, clipNumber: clips + 1,
+    saveToDrive: async (blob, info) => {
+      if (!state.library) {
+        const out = await loadGoogle();
+        if (!out || !out.library) throw new Error("Couldn't open the Family Hockey folder in Drive.");
+        state.library = out.library;
+        state.record = out.library.record;
+      }
+      const upload = new File([blob], info.name, { type: blob.type || 'video/mp4' });
+      const out = await publishClip({
+        file: upload, duration: info.duration, game: state.game, team: state.team, record: state.record, library: state.library,
+        extra: { shape: info.shape, edit: info.edit, fromFile: file.driveId },
+      });
+      state.record = out.record;
+      state.library = out.library;
+      cacheRecord(state.record);
+      return out.name;
+    },
+    onClose: () => { state.editor = null; $('clipCard').hidden = true; },
+  });
+  $('clipRoot').replaceChildren(state.editor.el);
+  $('clipCard').hidden = false;
+  $('clipCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function renderAll() {
   const all = views();
   $('connectCard').hidden = isConnected();
@@ -396,6 +435,7 @@ function wire() {
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragging'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));
   zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragging'); if (!state.busy) pickFiles([...e.dataTransfer.files]); });
+  $('makeClipBtn').addEventListener('click', openEditor);
   $('wholeFiles').addEventListener('change', (e) => { state.whole = e.target.checked; state.make = {}; renderAll(); });
   $('makeBtn').addEventListener('click', save);
   $('stopBtn').addEventListener('click', () => { if (state.abort) state.abort.abort(); });

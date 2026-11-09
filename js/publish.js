@@ -38,13 +38,14 @@ export async function publishJoined({ joined, used, parts, game, team, view, rec
 }
 
 // Upload one clip as it is.
-export async function publishClip({ file, duration, game, team, record, library, signal, onSent }) {
+export async function publishClip({ file, duration, game, team, record, library, signal, onSent, extra = {} }) {
   const folderId = await ensureFolder(folderPath(game, team, 'clip'));
   const name = safeName(file.name);
   const saved = await uploadFile(file, folderId, name, onSent, signal);
   const nextRecord = addFile(record, game.id, {
     driveId: saved.id, name, kind: 'clip', view: '', size: file.size, duration: duration ? Math.round(duration) : null,
     original: { name: file.name, size: file.size, lastModified: file.lastModified },
+    ...extra,
   });
   const nextLibrary = await saveLibrary({ ...library, record: nextRecord });
   return { record: nextRecord, library: nextLibrary, name };
