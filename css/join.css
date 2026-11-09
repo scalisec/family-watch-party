@@ -1,0 +1,48 @@
+/* Mark start & end, and make the full game */
+.parts-list, .make-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.parts-list li, .make-list li {
+  display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  padding: 10px 0; border-top: 1px solid var(--line);
+}
+.parts-list li:first-child, .make-list li:first-child { border-top: 0; }
+.parts-list .view-label { font-weight: 700; color: var(--accent-text); padding-top: 4px; border-top: 0; }
+.part-name { font-weight: 600; word-break: break-all; }
+.drop-small { padding: 16px; }
+
+.tab {
+  min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong);
+  background: transparent; color: var(--on-navy); font: 600 13px var(--font-sans); cursor: pointer;
+}
+.tab:hover { background: var(--surface-2); }
+.tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+.player-box { position: relative; background: #000; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--line); }
+.player-box video { display: block; width: 100%; max-height: 62vh; background: #000; }
+.player-note {
+  margin: 0; position: absolute; inset: auto 0 0 0; padding: 10px 14px; font-size: 13px;
+  background: rgba(8, 18, 38, .85); color: var(--ink);
+}
+.player-note:empty { display: none; }
+
+.clock-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.clock { font: 800 26px var(--font-display, var(--font-sans)); font-variant-numeric: tabular-nums; margin-right: 8px; }
+.nudge .btn-small { min-width: 52px; }
+
+.marks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mark {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.mark-text { font-variant-numeric: tabular-nums; flex: 1; min-width: 140px; }
+.mark-text.estimated { color: var(--work); }
+
+.make-list label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.make-list input { width: 20px; height: 20px; margin-top: 2px; }
+
+@media (max-width: 720px) {
+  .marks { grid-template-columns: 1fr; }
+  .clock { font-size: 22px; }
+  .nudge { width: 100%; }
+  .nudge .btn-small { flex: 1; min-width: 0; padding: 0 8px; }
+  #jumpSched { flex-basis: 100%; }
+}

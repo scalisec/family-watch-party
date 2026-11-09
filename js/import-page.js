@@ -205,6 +205,7 @@ async function upload() {
         });
         state.record = addFile(state.record, game.id, {
           driveId: file.id, name, kind: row.kind, view: row.view, start: Number.isFinite(row.parsed.minutes) ? row.parsed.minutes : null,
+          startSec: Number.isFinite(row.parsed.seconds) ? row.parsed.seconds : null,
           size: row.file.size, duration: row.meta && row.meta.duration ? Math.round(row.meta.duration) : null,
           original: { name: row.file.name, size: row.file.size, lastModified: row.file.lastModified },
         });

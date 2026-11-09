@@ -11,10 +11,11 @@ export function parseVideoFileName(name) {
       rink: m[1].replace(/_/g, ' ').replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim(),
       date: m[2],
       minutes: Number(m[3]) * 60 + Number(m[4]),
+      seconds: Number(m[3]) * 3600 + Number(m[4]) * 60 + Number(m[5]),
     };
   }
   m = /^(\d{4}-\d{2}-\d{2}) .+ part (\d+) \((\d{2})(\d{2})\)(?: (?:PANO|AUTO))?\.(mp4|m4v|mov)$/i.exec(name || '');
-  if (m) return { source: 'helper', rink: '', date: m[1], part: Number(m[2]), minutes: Number(m[3]) * 60 + Number(m[4]) };
+  if (m) return { source: 'helper', rink: '', date: m[1], part: Number(m[2]), minutes: Number(m[3]) * 60 + Number(m[4]), seconds: Number(m[3]) * 3600 + Number(m[4]) * 60 };
   return { source: 'other', name: String(name || '') };
 }
 

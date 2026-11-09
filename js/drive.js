@@ -130,7 +130,8 @@ export async function uploadFile(file, folderId, name, onProgress = () => {}, si
     const range = file.size === 0 ? { start: 0, end: -1, header: 'bytes */0' } : nextRange(offset, file.size);
     let res;
     try {
-      res = await fetch(session, { method: 'PUT', headers: { 'Content-Range': range.header }, body: file.slice(range.start, range.end + 1), signal });
+      const body = file.read ? await file.read(range.start, range.end + 1) : file.slice(range.start, range.end + 1);
+      res = await fetch(session, { method: 'PUT', headers: { 'Content-Range': range.header }, body, signal });
     } catch (err) {
       if (signal && signal.aborted) throw err;
       res = null;
@@ -157,3 +158,30 @@ export async function uploadFile(file, folderId, name, onProgress = () => {}, si
   throw new Error('Upload ended without a file.');
 }
 
+
+// Fetch a whole file back from Drive as a Blob (Chrome keeps big Blobs on disk, not in memory).
+export async function downloadFile(id, size, onProgress = () => {}, signal) {
+  const res = await gfetch(`${API}/files/${encodeURIComponent(id)}?alt=media`, { signal });
+  if (!res.ok) throw new Error(res.status === 404 ? 'That file is no longer in Drive.' : `Drive wouldn't send the file (${res.status}).`);
+  const reader = res.body.getReader();
+  const pieces = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    pieces.push(value);
+    got += value.length;
+    onProgress(got, size);
+  }
+  return new Blob(pieces, { type: 'video/mp4' });
+}
+
+// Move a file the app created to Drive's trash (restorable there for 30 days).
+export async function trashFile(id) {
+  const res = await gfetch(`${API}/files/${encodeURIComponent(id)}?fields=id,trashed`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+    body: JSON.stringify({ trashed: true }),
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`Drive wouldn't move a part to the trash (${res.status}).`);
+}

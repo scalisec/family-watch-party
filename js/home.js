@@ -48,6 +48,9 @@ function actionFor(game, status) {
   if (status.key === 'no-link') {
     return h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('Picking the rink') }, 'Pick rink');
   }
+  if (status.key === 'downloaded' && gameSummary(state.record, game.id).toJoin) {
+    return h('a', { class: 'btn btn-primary btn-small', href: `join.html?game=${encodeURIComponent(game.id)}` }, 'Mark start & end');
+  }
   return h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('The game page') }, 'Open');
 }
 
@@ -72,7 +75,7 @@ function gameTag(game) {
 function statusDetail(game, status) {
   if (status.key !== 'downloaded') return status.detail;
   const s = gameSummary(state.record, game.id);
-  const parts = [`${s.full} file${s.full === 1 ? '' : 's'}`];
+  const parts = [s.joined ? 'Full game' : `${s.full} part${s.full === 1 ? '' : 's'}`];
   if (s.views.length) parts.push(s.views.join(' + '));
   if (s.clips) parts.push(`${s.clips} clip${s.clips === 1 ? '' : 's'}`);
   return parts.join(' · ');

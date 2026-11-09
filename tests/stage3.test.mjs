@@ -82,7 +82,7 @@ test('mergeGames: same kid only, so a Grace event never hides a Lucas game', () 
 // ---------- file names ----------
 test('parseVideoFileName: LiveBarn file names', () => {
   const p = parseVideoFileName('Appleby_Ice_Centre_Rink_3_(LEAGUE_PARTNER_GAMES_ONLY)_2026-11-07T131423.mp4');
-  assert.deepEqual({ ...p }, { source: 'livebarn', rink: 'Appleby Ice Centre Rink 3', date: '2026-11-07', minutes: 13 * 60 + 14 });
+  assert.deepEqual({ ...p }, { source: 'livebarn', rink: 'Appleby Ice Centre Rink 3', date: '2026-11-07', minutes: 13 * 60 + 14, seconds: 13 * 3600 + 14 * 60 + 23 });
   assert.equal(parseVideoFileName('Mainway_Arena_Rink_1_2026-10-25T175959.MP4').minutes, 17 * 60 + 59);
 });
 
@@ -171,7 +171,7 @@ test('record: add files, summarize, part numbers, duplicates', () => {
   r = addFile(r, woodstock.id, { driveId: 'b', name: 'y', kind: 'full', view: 'AUTO', start: 854, size: 479744000, original: { name: 'auto.mp4', size: 479744000 } }, 'T2');
   r = addFile(r, woodstock.id, { driveId: 'c', name: 'z', kind: 'clip', view: '', size: 3000000, original: { name: 'goal.mp4', size: 3000000 } }, 'T3');
   assert.deepEqual([...downloadedIds(r)], [woodstock.id]);
-  assert.deepEqual(gameSummary(r, woodstock.id), { full: 2, clips: 1, views: ['PANO', 'AUTO'] });
+  assert.deepEqual(gameSummary(r, woodstock.id), { full: 2, clips: 1, views: ['PANO', 'AUTO'], joined: false, toJoin: true });
   assert.equal(nextPart(r, woodstock.id, 'PANO'), 2);
   assert.equal(nextPart(r, woodstock.id, 'AUTO'), 2);
   assert.equal(alreadyImported(r, { name: orig.name, size: orig.size }), true);
@@ -222,7 +222,7 @@ test('Google calls go only to Google\'s API hosts', () => {
 
 test('version matches across every page', () => {
   const v = JSON.parse(read('package.json')).version.replace(/\./g, '\\.');
-  for (const page of ['index.html', 'pano-check.html', 'helper-test.html', 'import.html']) {
+  for (const page of ['index.html', 'pano-check.html', 'helper-test.html', 'import.html', 'join.html']) {
     assert.match(read(page), new RegExp(`V${v}<`), page);
   }
 });

@@ -73,9 +73,68 @@ export function downloadedIds(record) {
 
 export function gameSummary(record, gameId) {
   const g = record.games[gameId];
-  if (!g) return { full: 0, clips: 0, views: [] };
+  if (!g) return { full: 0, clips: 0, views: [], joined: false, toJoin: false };
   const full = g.files.filter((f) => f.kind === 'full');
-  return { full: full.length, clips: g.files.length - full.length, views: [...new Set(full.map((f) => f.view).filter(Boolean))].sort().reverse() };
+  const views = [...new Set(full.map((f) => f.view || ''))];
+  return {
+    full: full.length,
+    clips: g.files.length - full.length,
+    views: views.filter(Boolean).sort().reverse(),
+    joined: full.length > 0 && full.every((f) => f.joined),
+    toJoin: full.some((f) => !f.joined),
+  };
+}
+
+// Seconds after midnight when this file starts (falls back to whole minutes for older entries).
+export function clockSec(entry) {
+  if (Number.isFinite(entry.startSec)) return entry.startSec;
+  if (Number.isFinite(entry.start)) return entry.start * 60;
+  return null;
+}
+
+// Full-game parts (not yet joined) for each view, in time order: { PANO: [...], AUTO: [...] }
+export function partsByView(record, gameId) {
+  const g = record.games[gameId];
+  const out = {};
+  if (!g) return out;
+  for (const f of g.files) {
+    if (f.kind !== 'full' || f.joined) continue;
+    const v = f.view || 'Video';
+    (out[v] = out[v] || []).push(f);
+  }
+  for (const v of Object.keys(out)) out[v].sort((a, b) => (clockSec(a) ?? 0) - (clockSec(b) ?? 0) || String(a.name).localeCompare(String(b.name)));
+  return out;
+}
+
+export function joinedFile(record, gameId, view) {
+  const g = record.games[gameId];
+  return g ? g.files.find((f) => f.kind === 'full' && f.joined && (f.view || 'Video') === view) || null : null;
+}
+
+// "2026-11-07 vs Woodstock Jr Navy Vets full game PANO.mp4"
+export function joinedFileName(game, view) {
+  return safeName(`${game.date} ${game.opponentLabel} full game${view && view !== 'Video' ? ` ${view}` : ''}.mp4`);
+}
+
+export function setMarks(record, gameId, view, marks, now = new Date().toISOString()) {
+  const games = { ...record.games };
+  const g = { ...(games[gameId] || { files: [] }) };
+  g.marks = { ...(g.marks || {}), [view]: marks };
+  games[gameId] = g;
+  return { ...record, updatedAt: now, games };
+}
+
+// Swap the parts for the joined file. The parts' original names stay on the new entry so they're never imported twice.
+export function replaceWithJoined(record, gameId, partIds, entry, now = new Date().toISOString()) {
+  const games = { ...record.games };
+  const g = games[gameId];
+  const ids = new Set(partIds);
+  const parts = g.files.filter((f) => ids.has(f.driveId));
+  const originals = parts.flatMap((f) => [f.original, ...(f.originals || [])]).filter(Boolean);
+  const files = g.files.filter((f) => !ids.has(f.driveId));
+  files.push({ ...entry, kind: 'full', joined: true, originals, addedAt: now });
+  games[gameId] = { ...g, files };
+  return { ...record, updatedAt: now, games };
 }
 
 export function nextPart(record, gameId, view) {
@@ -85,7 +144,8 @@ export function nextPart(record, gameId, view) {
 
 // Whether this exact file from the computer was already uploaded.
 export function alreadyImported(record, file) {
-  return Object.values(record.games).some((g) => g.files.some((f) => f.original && f.original.name === file.name && f.original.size === file.size));
+  const same = (o) => o && o.name === file.name && o.size === file.size;
+  return Object.values(record.games).some((g) => g.files.some((f) => same(f.original) || (f.originals || []).some(same)));
 }
 
 // Byte range for the next upload piece: inclusive end, as Content-Range wants.

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mark start & end · Family Watch Party</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/import.css">
+  <link rel="stylesheet" href="css/join.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="lockup" href="index.html">
+      <span class="app-icon" aria-hidden="true">FWP</span>
+      <span>
+        <span class="app-name">Family Watch Party</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.5.0</span>
+      </span>
+    </a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html" aria-current="page">Games</a>
+      <a href="#clips">Clips</a>
+      <a href="#settings">Settings</a>
+    </nav>
+    <div class="row">
+      <button id="googleBtn" class="chip chip-btn chip-action" type="button">Connect Google</button>
+    </div>
+  </header>
+
+  <main>
+    <div>
+      <a href="index.html">‹ Back to games</a>
+      <h1 id="title">Mark start &amp; end</h1>
+      <p id="subtitle" class="muted">Loading the game…</p>
+    </div>
+
+    <section id="connectCard" class="card card-accent" aria-labelledby="connect-h" hidden>
+      <h2 id="connect-h">Connect Google</h2>
+      <p class="muted">Press <strong>Connect Google</strong> at the top to load this game's files from Drive and save the full game there.</p>
+    </section>
+
+    <p id="pageError" class="error-box" role="alert" hidden></p>
+
+    <section id="partsCard" class="card" aria-labelledby="parts-h" hidden>
+      <div class="section-head">
+        <h2 id="parts-h">1 · The parts</h2>
+        <span id="partsSummary" class="small muted"></span>
+      </div>
+      <ul id="partsList" class="parts-list"></ul>
+      <div id="dropZone" class="drop-zone drop-small">
+        <p><strong>Still have these files on this PC?</strong> Pick them and the app reads them from here, which is much faster than loading them back from Drive.</p>
+        <label class="btn" for="fileInput">Pick the files</label>
+        <input id="fileInput" type="file" accept="video/*,.mp4,.mov,.m4v" multiple hidden>
+      </div>
+    </section>
+
+    <section id="markCard" class="card" aria-labelledby="mark-h" hidden>
+      <div class="section-head">
+        <h2 id="mark-h">2 · Mark puck drop and the final buzzer</h2>
+        <div id="viewTabs" class="row" role="group" aria-label="Camera view"></div>
+      </div>
+      <div id="partTabs" class="row" role="group" aria-label="Part"></div>
+      <div class="player-box">
+        <video id="player" controls playsinline preload="metadata"></video>
+        <p id="playerNote" class="player-note">Pick a part to start watching.</p>
+      </div>
+      <div class="clock-row">
+        <div>
+          <strong id="clock" class="clock">—</strong>
+          <span id="partPos" class="small muted"></span>
+        </div>
+        <div class="row nudge" role="group" aria-label="Move the video">
+          <button id="back10" class="btn btn-small" type="button" aria-label="Back 10 seconds">−10s</button>
+          <button id="back1" class="btn btn-small" type="button" aria-label="Back 1 second">−1s</button>
+          <button id="fwd1" class="btn btn-small" type="button" aria-label="Forward 1 second">+1s</button>
+          <button id="fwd10" class="btn btn-small" type="button" aria-label="Forward 10 seconds">+10s</button>
+          <button id="jumpSched" class="btn btn-small" type="button">Go to scheduled start</button>
+        </div>
+      </div>
+      <div class="marks">
+        <div class="mark">
+          <button id="setStart" class="btn btn-primary" type="button">Set puck drop here</button>
+          <span id="startMark" class="mark-text">Not set</span>
+          <button id="goStart" class="btn btn-small" type="button" hidden>Go to it</button>
+        </div>
+        <div class="mark">
+          <button id="setEnd" class="btn btn-primary" type="button">Set final buzzer here</button>
+          <span id="endMark" class="mark-text">Not set</span>
+          <button id="goEnd" class="btn btn-small" type="button" hidden>Go to it</button>
+        </div>
+      </div>
+      <p id="markNote" class="small muted" hidden></p>
+    </section>
+
+    <section id="makeCard" class="card" aria-labelledby="make-h" hidden>
+      <h2 id="make-h">3 · Make the full game</h2>
+      <ul id="makeList" class="make-list"></ul>
+      <p class="small muted">The video is copied, not re-processed, so quality stays the same and it takes a few minutes. Cuts land on the nearest keyframe: the game can start up to about 2 seconds early and end up to 2 seconds late. When the full game is safely in Drive, that view's parts move to Drive's trash, where you can restore them for 30 days.</p>
+      <div class="row">
+        <button id="makeBtn" class="btn btn-primary" type="button" disabled>Make full game</button>
+        <button id="stopBtn" class="btn" type="button" hidden>Stop</button>
+        <span id="makeNote" class="small muted" role="status"></span>
+      </div>
+      <div id="makeProgress" class="meter" role="progressbar" aria-label="Making the full game" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="makeFill" class="meter-fill" style="width: 0%"></div></div>
+    </section>
+
+    <section id="doneCard" class="card card-accent" aria-labelledby="done-h" hidden>
+      <h2 id="done-h">Done</h2>
+      <p id="doneText"></p>
+      <div class="row">
+        <a class="btn btn-primary" href="index.html">Back to games</a>
+        <a id="driveLink" class="btn" target="_blank" rel="noopener">Open the game folder in Drive</a>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/join-page.js"></script>
+</body>
+</html>

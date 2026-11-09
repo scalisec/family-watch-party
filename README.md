@@ -76,6 +76,7 @@ node --test tests/*.test.mjs
 - [x] Stage 1: LiveBarn helper extension (`extension/`, test page `helper-test.html`)
 - [x] Stage 2: home screen and game list
 - [x] Stage 3: Google sign-in, Family Hockey folders in Drive, importing existing downloads (`import.html`), TeamSnap games via Google Calendar
+- [x] Stage 3a: Mark start & end (`join.html`): mark puck drop and the final buzzer, then join a view's parts into one full-game file in Drive (cut at keyframes, no re-processing); the parts go to Drive's trash
 - [ ] Stage 3b: download from LiveBarn straight into Drive, and "Pick rink" for games without a LiveBarn link
 - [ ] Stage 4: game page and player
 - [ ] Stage 5: clip editor, save and share
