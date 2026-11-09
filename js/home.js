@@ -42,16 +42,21 @@ function soon(what) {
 }
 
 function actionFor(game, status) {
+  const page = `join.html?game=${encodeURIComponent(game.id)}`;
+  const importLink = h('a', { class: 'small action-link', href: page }, 'Import files');
+  if (status.key === 'downloaded') {
+    return gameSummary(state.record, game.id).toJoin
+      ? h('a', { class: 'btn btn-primary btn-small', href: page }, 'Mark start & end')
+      : h('a', { class: 'btn btn-small', href: page }, 'Open');
+  }
   if (status.key === 'ready' || status.key === 'leaves-soon') {
-    return h('button', { type: 'button', class: 'btn btn-primary btn-small', onclick: () => soon('Downloading from LiveBarn') }, 'Download');
+    return [h('button', { type: 'button', class: 'btn btn-primary btn-small', onclick: () => soon('Downloading from LiveBarn') }, 'Download'), importLink];
   }
   if (status.key === 'no-link') {
-    return h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('Picking the rink') }, 'Pick rink');
+    return [h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('Picking the rink') }, 'Pick rink'), importLink];
   }
-  if (status.key === 'downloaded' && gameSummary(state.record, game.id).toJoin) {
-    return h('a', { class: 'btn btn-primary btn-small', href: `join.html?game=${encodeURIComponent(game.id)}` }, 'Mark start & end');
-  }
-  return h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('The game page') }, 'Open');
+  if (status.key === 'expired' || status.key === 'today') return h('a', { class: 'btn btn-small', href: page }, 'Import files');
+  return null;
 }
 
 function initials(name) {

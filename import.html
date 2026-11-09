@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/import.css">
+  <link rel="stylesheet" href="css/join.css">
 </head>
 <body>
   <header class="app-header">
@@ -16,7 +17,7 @@
       <span class="app-icon" aria-hidden="true">FWP</span>
       <span>
         <span class="app-name">Family Watch Party</span>
-        <span class="byline">BY BENCH BOSS LABS · V0.6.0</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.7.0</span>
       </span>
     </a>
     <nav class="main-nav" aria-label="Main">
@@ -33,7 +34,7 @@
     <div>
       <a href="index.html">‹ Back to games</a>
       <h1>Import downloads</h1>
-      <p class="muted">Pick game files and clips already on this computer. Each one is matched to its game, uploaded to that game's folder in Google Drive, and the game is marked Downloaded. Your copies stay on this computer.</p>
+      <p class="muted">Pick game files and clips already on this computer. Each one is matched to its game. You mark where each game starts and ends, and one file per game goes to that game's folder in Google Drive. Your copies stay on this computer.</p>
     </div>
 
     <section id="connectCard" class="card card-accent" aria-labelledby="connect-h" hidden>
@@ -70,13 +71,31 @@
           <tbody id="importBody"></tbody>
         </table>
       </div>
+    </section>
+
+    <section id="gamesCard" class="card" aria-labelledby="games-h" hidden>
+      <div class="section-head">
+        <h2 id="games-h">3 · Mark each game</h2>
+        <span id="gamesSummary" class="small muted"></span>
+      </div>
+      <p class="small muted">Each game's full-game files become one file per camera view in Drive. Mark puck drop and the final buzzer, or tick <strong>Use whole files</strong> to keep everything. Clips go up as they are.</p>
+      <ul id="gameList" class="game-groups"></ul>
       <div class="row upload-row">
         <button id="uploadBtn" class="btn btn-primary" type="button" disabled>Upload to Drive</button>
-        <button id="stopBtn" class="btn" type="button" hidden>Stop after this file</button>
+        <button id="stopBtn" class="btn" type="button" hidden>Stop after this game</button>
         <button id="clearBtn" class="btn" type="button">Clear list</button>
-        <span id="uploadNote" class="small muted"></span>
+        <span id="uploadNote" class="small muted" role="status"></span>
       </div>
       <div id="overall" class="meter" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="overallFill" class="meter-fill meter-good" style="width: 0%"></div></div>
+    </section>
+
+    <section id="markPanel" class="card card-accent" aria-labelledby="markTitle" hidden>
+      <div class="section-head">
+        <h2 id="markTitle">Mark puck drop and the final buzzer</h2>
+        <button id="markClose" class="btn btn-small" type="button">Done marking</button>
+      </div>
+      <p id="markSub" class="small muted"></p>
+      <div id="markerRoot"></div>
     </section>
 
     <section id="doneCard" class="card" aria-labelledby="done-h" hidden>

@@ -61,3 +61,19 @@ export function driveFileLink(id) {
 export function driveFolderLink(id) {
   return `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
 }
+
+// Width, height and length of a video file (empty if the browser can't read it)
+export function readMeta(file) {
+  return new Promise((resolve) => {
+    const v = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    let settled = false;
+    const finish = (meta) => { if (settled) return; settled = true; URL.revokeObjectURL(url); v.removeAttribute('src'); resolve(meta); };
+    v.preload = 'metadata';
+    v.muted = true;
+    v.onloadedmetadata = () => finish({ width: v.videoWidth, height: v.videoHeight, duration: v.duration });
+    v.onerror = () => finish({});
+    setTimeout(() => finish({}), 15000);
+    v.src = url;
+  });
+}

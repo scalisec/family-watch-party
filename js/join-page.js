@@ -1,313 +1,253 @@
-// Mark puck drop and the final buzzer, then join a view's parts into one full-game file in Drive.
+// A game's page: bring in its files from this PC (or use parts already in Drive), mark puck drop and
+// the final buzzer, and save one full-game file per camera view to Drive. Clips go up as they are.
 import { TEAMS } from './config.js';
 import { dayLabel, timeLabel } from './games.js';
-import {
-  partsByView, joinedFile, joinedFileName, setMarks, replaceWithJoined, clockSec, folderPath, parseHHMMSafe,
-} from './library.js';
-import { $, h, toast, formatBytes, formatDuration, driveFolderLink } from './ui.js';
+import { partsByView, joinedFile, setMarks, clockSec, alreadyImported, folderPath } from './library.js';
+import { parseVideoFileName, viewFromSize, kindFor } from './import-match.js';
+import { $, h, toast, formatBytes, formatDuration, driveFolderLink, readMeta } from './ui.js';
 import { isConnected, NotConnectedError } from './google.js';
 import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, cacheRecord, combine, loadGoogle } from './data.js';
-import { ensureFolder, uploadFile, saveLibrary, downloadFile, trashFile } from './drive.js';
-import { blobReader, readMp4, buildJoin, Mp4Error } from './mp4.js';
+import { saveLibrary, downloadFile, ensureFolder } from './drive.js';
+import { Mp4Error } from './mp4.js';
+import { createMarker, marksValid, lengthOf, markClock, clockText, cutFor } from './marker.js';
+import { prepareJoin, publishJoined, publishClip } from './publish.js';
 
 const gameId = new URLSearchParams(location.search).get('game') || '';
+const VIEWS = ['PANO', 'AUTO', 'Video'];
 
 const state = {
   game: null,
   team: null,
   record: cachedRecord(),
   library: null,
-  views: {},           // { PANO: [entries], AUTO: [...] }
-  view: '',
-  part: 0,
-  marks: {},           // { PANO: { start: { id, sec }, end: { id, sec }, estimated } }
-  blobs: new Map(),    // driveId -> Blob (picked on this PC or loaded from Drive)
-  urls: new Map(),     // driveId -> object URL for the player
-  loading: new Map(),  // driveId -> Promise<Blob>
+  local: [],           // files picked on this PC that aren't in Drive yet
+  blobs: new Map(),    // driveId -> Blob (picked on this PC, or loaded from Drive)
+  loading: new Map(),
+  marks: {},
+  whole: false,
+  make: {},
   busy: false,
   abort: null,
-  make: {},            // view -> ticked
+  marker: null,
+  nextId: 1,
 };
 
-// ---------- small helpers ----------
-function clockText(sec) {
-  if (!Number.isFinite(sec)) return '—';
-  const s = Math.round(sec);
-  const hh = Math.floor(s / 3600) % 24;
-  const mm = Math.floor(s / 60) % 60;
-  const ss = s % 60;
-  return `${hh % 12 || 12}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')} ${hh >= 12 ? 'PM' : 'AM'}`;
-}
-function posText(sec) {
-  const s = Math.max(0, Math.floor(sec));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-const parts = () => state.views[state.view] || [];
-const current = () => parts()[state.part] || null;
-const indexOf = (view, id) => (state.views[view] || []).findIndex((p) => p.driveId === id);
-// Clock time for a mark (seconds after midnight), or null when the part has no start time
-function markClock(view, mark) {
-  if (!mark) return null;
-  const p = (state.views[view] || [])[indexOf(view, mark.id)];
-  const base = p ? clockSec(p) : null;
-  return base == null ? null : base + mark.sec;
-}
-// Turn a clock time into a mark in another view
-function markAtClock(view, clock) {
-  const list = state.views[view] || [];
-  let best = null;
-  for (const p of list) { const c = clockSec(p); if (c != null && c <= clock) best = p; }
-  if (!best) best = list[0];
-  if (!best || clockSec(best) == null) return null;
-  return { id: best.driveId, sec: Math.max(0, clock - clockSec(best)) };
-}
-function markOrder(view, m) { return [indexOf(view, m.id), m.sec]; }
-function marksValid(view) {
-  const m = state.marks[view];
-  if (!m || !m.start || !m.end) return false;
-  const [a, b] = [markOrder(view, m.start), markOrder(view, m.end)];
-  if (a[0] < 0 || b[0] < 0) return false;
-  return a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
-}
-function lengthOf(view) {
-  const m = state.marks[view];
-  const a = markClock(view, m.start);
-  const b = markClock(view, m.end);
-  return a != null && b != null ? b - a : null;
+const showError = (text) => { $('pageError').textContent = text; $('pageError').hidden = !text; };
+
+// ---------- the parts ----------
+function driveParts() {
+  const by = partsByView(state.record, gameId);
+  const out = {};
+  for (const [view, list] of Object.entries(by)) {
+    out[view] = list.map((e) => ({ id: e.driveId, driveId: e.driveId, clock: clockSec(e), size: e.size, duration: e.duration, entry: e }));
+  }
+  return out;
 }
 
-function showError(text) { $('pageError').textContent = text; $('pageError').hidden = !text; }
+// Every view's parts, in time order: Drive parts plus new full-game files from this PC
+function views() {
+  const out = driveParts();
+  for (const f of state.local) {
+    if (f.kind !== 'full' || f.blocked) continue;
+    (out[f.view] = out[f.view] || []).push(f);
+  }
+  for (const v of Object.keys(out)) {
+    out[v].sort((a, b) => (a.clock ?? Infinity) - (b.clock ?? Infinity) || String(a.file ? a.file.name : a.entry.name).localeCompare(String(b.file ? b.file.name : b.entry.name)));
+  }
+  return out;
+}
+const localClips = () => state.local.filter((f) => f.kind === 'clip');
 
-// ---------- getting the files ----------
-async function blobFor(entry, onProgress) {
-  if (state.blobs.has(entry.driveId)) return state.blobs.get(entry.driveId);
-  if (!state.loading.has(entry.driveId)) {
+async function getBlob(part, onProgress) {
+  if (part.file) return part.file;
+  if (state.blobs.has(part.driveId)) return state.blobs.get(part.driveId);
+  if (!state.loading.has(part.driveId)) {
     if (!isConnected()) throw new NotConnectedError('Connect Google to load this part from Drive, or pick the file on this PC.');
-    const p = downloadFile(entry.driveId, entry.size, onProgress)
-      .then((blob) => { state.blobs.set(entry.driveId, blob); renderParts(); return blob; })
-      .finally(() => state.loading.delete(entry.driveId));
-    state.loading.set(entry.driveId, p);
+    const p = downloadFile(part.driveId, part.size, onProgress)
+      .then((blob) => { state.blobs.set(part.driveId, blob); renderParts(); return blob; })
+      .finally(() => state.loading.delete(part.driveId));
+    state.loading.set(part.driveId, p);
+    renderParts();
   }
-  return state.loading.get(entry.driveId);
+  return state.loading.get(part.driveId);
 }
 
-function pickLocal(fileList) {
-  const all = Object.values(state.views).flat();
-  let matched = 0;
-  const strangers = [];
-  for (const file of fileList) {
-    const entry = all.find((p) => p.original && p.original.name === file.name && p.original.size === file.size)
-      || all.find((p) => p.name === file.name && p.size === file.size);
-    if (entry) { state.blobs.set(entry.driveId, file); matched += 1; } else strangers.push(file.name);
+function blockReason(f) {
+  if (f.kind !== 'full') return '';
+  const done = joinedFile(state.record, gameId, f.view);
+  return done ? `This game already has a full ${f.view} file in Drive.` : '';
+}
+
+async function pickFiles(fileList) {
+  const files = [...fileList].filter((f) => /^video\//.test(f.type) || /\.(mp4|mov|m4v)$/i.test(f.name));
+  if (!files.length) { toast('Pick MP4 or MOV video files.'); return; }
+  const parts = Object.values(driveParts()).flat();
+  let linked = 0;
+  for (const file of files) {
+    const same = (o) => o && o.name === file.name && o.size === file.size;
+    const part = parts.find((p) => same(p.entry.original) || (p.entry.name === file.name && p.entry.size === file.size));
+    if (part) { state.blobs.set(part.driveId, file); linked += 1; continue; }
+    if (state.local.some((f) => same(f.file))) continue;
+    if (alreadyImported(state.record, file)) { toast(`${file.name} is already in Drive.`); continue; }
+    const parsed = parseVideoFileName(file.name);
+    state.local.push({
+      id: `local-${state.nextId++}`, file, parsed, size: file.size, clock: Number.isFinite(parsed.seconds) ? parsed.seconds : null,
+      view: '', kind: kindFor(parsed, undefined), duration: null, reading: true,
+    });
   }
-  if (strangers.length) toast(`${strangers.length === 1 ? `${strangers[0]} isn't` : `${strangers.length} files aren't`} one of this game's parts.`, 6000);
-  else if (matched) toast(`Using ${matched} file${matched === 1 ? '' : 's'} from this PC.`);
-  renderParts();
-  if (matched && !$('player').src) showPart(state.part);
-}
-
-// ---------- player ----------
-async function showPart(index, seekTo = null) {
-  const entry = parts()[index];
-  if (!entry) return;
-  state.part = index;
-  renderTabs();
-  const player = $('player');
-  const note = $('playerNote');
-  let url = state.urls.get(entry.driveId);
-  if (!url) {
-    note.textContent = state.blobs.has(entry.driveId) ? 'Opening…' : `Loading part ${index + 1} from Drive…`;
-    try {
-      const blob = await blobFor(entry, (got, size) => {
-        if (state.part === index) note.textContent = `Loading part ${index + 1} from Drive: ${formatBytes(got)} of ${formatBytes(size || entry.size)}`;
-      });
-      url = URL.createObjectURL(blob);
-      state.urls.set(entry.driveId, url);
-    } catch (err) {
-      note.textContent = err.message;
-      return;
-    }
-    if (state.part !== index) return;
+  if (linked) toast(`Using ${linked} file${linked === 1 ? '' : 's'} from this PC for the parts already in Drive.`);
+  renderAll();
+  for (const f of state.local.filter((x) => x.reading)) {
+    const meta = await readMeta(f.file);
+    f.reading = false;
+    f.duration = meta.duration || null;
+    f.view = viewFromSize(meta.width, meta.height) || 'Video';
+    f.kind = kindFor(f.parsed, meta.duration);
+    f.blocked = blockReason(f);
   }
-  note.textContent = '';
-  if (player.src !== url) {
-    player.src = url;
-    await new Promise((res) => { player.onloadedmetadata = res; player.onerror = res; });
-    if (player.error) { note.textContent = "This browser can't play this file."; return; }
-  }
-  if (seekTo != null) player.currentTime = Math.min(Math.max(0, seekTo), Math.max(0, player.duration - 0.1));
-  paintClock();
-}
-
-function paintClock() {
-  const entry = current();
-  const player = $('player');
-  if (!entry || !player.src) { $('clock').textContent = '—'; $('partPos').textContent = ''; return; }
-  const base = clockSec(entry);
-  $('clock').textContent = base == null ? posText(player.currentTime) : clockText(base + player.currentTime);
-  $('partPos').textContent = `Part ${state.part + 1} · ${posText(player.currentTime)}${Number.isFinite(player.duration) ? ` of ${posText(player.duration)}` : ''}`;
-}
-
-function nudge(by) {
-  const player = $('player');
-  if (!player.src) return;
-  const t = player.currentTime + by;
-  if (t < 0 && state.part > 0) { const prev = state.part - 1; showPart(prev, Infinity); return; }
-  if (Number.isFinite(player.duration) && t > player.duration && state.part < parts().length - 1) { showPart(state.part + 1, t - player.duration); return; }
-  player.currentTime = Math.max(0, Math.min(t, player.duration || t));
-}
-
-function goToClock(clock) {
-  const m = markAtClock(state.view, clock);
-  if (!m) { toast("These parts don't have start times, so pick the part and scrub to it."); return; }
-  showPart(indexOf(state.view, m.id), m.sec);
-}
-
-function goToMark(which) {
-  const m = state.marks[state.view] && state.marks[state.view][which];
-  if (m) showPart(indexOf(state.view, m.id), m.sec);
+  renderAll();
+  if (state.marker) state.marker.start();
 }
 
 // ---------- marks ----------
-async function saveMarks() {
-  state.record = setMarks(state.record, state.game.id, state.view, state.marks[state.view]);
-  cacheRecord(state.record);
-  if (state.library && isConnected()) {
-    try { state.library = await saveLibrary({ ...state.library, record: state.record }); } catch { /* saved locally; tried again on the next change */ }
+async function saveMarks(marks) {
+  state.marks = marks;
+  // Only marks on parts already in Drive are worth keeping in the record
+  const keep = {};
+  for (const [view, m] of Object.entries(marks)) {
+    const inDrive = (id) => id && !String(id).startsWith('local-');
+    if (m && inDrive(m.start && m.start.id) && inDrive(m.end && m.end.id)) keep[view] = m;
   }
-}
-
-function setMark(which) {
-  const entry = current();
-  const player = $('player');
-  if (!entry || !player.src) { toast('Play a part first.'); return; }
-  const m = { ...(state.marks[state.view] || {}) };
-  m[which] = { id: entry.driveId, sec: Math.round(player.currentTime * 10) / 10 };
-  m.estimated = false;
-  state.marks[state.view] = m;
-  delete state.make[state.view];
-  // Fill in the other views as a starting point
-  const clock = markClock(state.view, m[which]);
-  for (const v of Object.keys(state.views)) {
-    if (v === state.view || clock == null) continue;
-    const other = { ...(state.marks[v] || {}) };
-    if (other[which] && !other.estimated) continue;
-    const est = markAtClock(v, clock);
-    if (est) { other[which] = est; other.estimated = true; state.marks[v] = other; }
+  for (const v of Object.keys(keep)) state.record = setMarks(state.record, gameId, v, keep[v]);
+  if (Object.keys(keep).length) {
+    cacheRecord(state.record);
+    if (state.library && isConnected()) {
+      try { state.library = await saveLibrary({ ...state.library, record: state.record }); } catch { /* kept locally */ }
+    }
   }
-  renderMarks();
   renderMake();
-  saveMarks();
-}
-
-function markLabel(view, m) {
-  if (!m) return 'Not set';
-  const i = indexOf(view, m.id);
-  const clock = markClock(view, m);
-  return `${clock != null ? clockText(clock) : posText(m.sec)} · part ${i + 1}, ${posText(m.sec)}`;
-}
-
-function renderMarks() {
-  const m = state.marks[state.view] || {};
-  $('startMark').textContent = markLabel(state.view, m.start);
-  $('endMark').textContent = markLabel(state.view, m.end);
-  $('startMark').className = `mark-text${m.estimated && m.start ? ' estimated' : ''}`;
-  $('endMark').className = `mark-text${m.estimated && m.end ? ' estimated' : ''}`;
-  $('goStart').hidden = !m.start;
-  $('goEnd').hidden = !m.end;
-  const other = Object.keys(state.views).find((v) => v !== state.view);
-  let note = '';
-  if (m.estimated) note = `These were estimated from the ${other} marks, but the two cameras' clocks can differ a little. Check them with "Go to it" and set them again if they're off.`;
-  else if (m.start && m.end && !marksValid(state.view)) note = 'The final buzzer is before puck drop. Set them again.';
-  $('markNote').textContent = note;
-  $('markNote').hidden = !note;
 }
 
 // ---------- rendering ----------
-function renderTabs() {
-  const views = Object.keys(state.views);
-  $('viewTabs').replaceChildren(...(views.length > 1 ? views.map((v) => h('button', {
-    type: 'button', class: 'tab', 'aria-pressed': String(v === state.view),
-    onclick: () => { if (v !== state.view) { state.view = v; state.part = 0; $('player').removeAttribute('src'); $('player').load(); renderAll(); showPart(0); } },
-  }, v)) : []));
-  $('partTabs').replaceChildren(...parts().map((p, i) => h('button', {
-    type: 'button', class: 'tab', 'aria-pressed': String(i === state.part),
-    onclick: () => showPart(i),
-  }, `Part ${i + 1}${clockSec(p) != null ? ` · ${clockText(clockSec(p)).replace(/:\d\d (AM|PM)$/, ' $1')}` : ''}`)));
-  const sched = parseHHMMSafe(state.game && state.game.time);
-  $('jumpSched').hidden = !Number.isFinite(sched);
-  if (Number.isFinite(sched)) $('jumpSched').textContent = `Go to scheduled start (${timeLabel(state.game.time)})`;
+function partLine(label, text, pill, extra = []) {
+  return h('li', {},
+    h('span', {}, h('span', { class: 'part-name' }, label), ' ', h('span', { class: 'small muted' }, text)),
+    h('span', { class: 'part-actions' }, ...extra, pill));
 }
 
 function renderParts() {
   const items = [];
-  let local = 0;
+  const all = views();
+  let fromPc = 0;
   let total = 0;
-  for (const [view, list] of Object.entries(state.views)) {
+  for (const [view, list] of Object.entries(all)) {
     items.push(h('li', { class: 'view-label' }, view));
     list.forEach((p, i) => {
       total += 1;
-      const here = state.blobs.has(p.driveId);
-      if (here) local += 1;
-      const loading = state.loading.has(p.driveId);
-      items.push(h('li', {},
-        h('span', {}, h('span', { class: 'part-name' }, `Part ${i + 1}`), ' ',
-          h('span', { class: 'small muted' }, `${clockSec(p) != null ? `starts ${clockText(clockSec(p))} · ` : ''}${formatBytes(p.size)}${p.duration ? ` · ${formatDuration(p.duration)}` : ''}`)),
-        h('span', { class: `pill ${here ? 'pill-good' : 'pill-none'}` }, here ? 'On this PC' : loading ? 'Loading from Drive…' : 'In Drive')));
+      const here = Boolean(p.file || state.blobs.has(p.driveId));
+      if (here) fromPc += 1;
+      const desc = `${p.clock != null ? `starts ${clockText(p.clock)} · ` : ''}${formatBytes(p.size)}${p.duration ? ` · ${formatDuration(p.duration)}` : ''}${p.file ? ` · ${p.file.name}` : ''}`;
+      const pill = p.file ? h('span', { class: 'pill pill-info' }, 'New · on this PC')
+        : here ? h('span', { class: 'pill pill-good' }, 'In Drive · on this PC')
+          : h('span', { class: 'pill pill-none' }, state.loading.has(p.driveId) ? 'Loading from Drive…' : 'In Drive');
+      items.push(partLine(`Part ${i + 1}`, desc, pill, p.file ? [kindSelect(p), removeBtn(p)] : []));
     });
   }
+  const clips = localClips();
+  if (clips.length) {
+    items.push(h('li', { class: 'view-label' }, 'Clips'));
+    for (const c of clips) items.push(partLine(c.file.name, `${formatBytes(c.size)}${c.duration ? ` · ${formatDuration(c.duration)}` : ''}`, h('span', { class: 'pill pill-info' }, 'New · on this PC'), [kindSelect(c), removeBtn(c)]));
+  }
+  for (const f of state.local.filter((x) => x.reading || x.blocked)) {
+    items.push(partLine(f.file.name, f.reading ? 'Reading…' : f.blocked, h('span', { class: `pill ${f.blocked ? 'pill-work' : 'pill-none'}` }, f.blocked ? 'Not used' : 'Reading'), f.blocked ? [removeBtn(f)] : []));
+  }
+  const wrongDay = state.local.filter((f) => f.parsed && f.parsed.date && state.game && f.parsed.date !== state.game.date);
+  if (wrongDay.length) items.push(h('li', {}, h('span', { class: 'small warn-text' }, `${wrongDay.length === 1 ? `${wrongDay[0].file.name} was` : `${wrongDay.length} files were`} recorded on a different day than this game. Check you picked the right files.`)));
   $('partsList').replaceChildren(...items);
-  $('partsSummary').textContent = total ? `${local} of ${total} picked from this PC` : '';
-  $('dropZone').hidden = total > 0 && local === total;
+  $('partsList').hidden = !items.length;
+  $('partsSummary').textContent = total ? `${total} full-game file${total === 1 ? '' : 's'}${clips.length ? ` · ${clips.length} clip${clips.length === 1 ? '' : 's'}` : ''}` : '';
+  const driveOnly = total - fromPc;
+  $('dropText').replaceChildren(...(driveOnly > 0
+    ? [h('strong', {}, 'Still have the files on this PC?'), ` Pick them and ${driveOnly === 1 ? 'the part in Drive is' : `the ${driveOnly} parts in Drive are`} read from here instead, which is much faster. You can also add more files or clips for this game.`]
+    : [h('strong', {}, "Pick this game's files on this PC"), ': the full-game downloads and any clips. Nothing goes to Drive until you press Save.']));
 }
 
-// Views to make: estimated marks start unticked until checked
+function kindSelect(f) {
+  return h('select', {
+    'aria-label': `Type of ${f.file.name}`, disabled: state.busy,
+    onchange: (e) => { f.kind = e.target.value; f.blocked = blockReason(f); renderAll(); },
+  }, h('option', { value: 'full', selected: f.kind === 'full' }, 'Full game'), h('option', { value: 'clip', selected: f.kind === 'clip' }, 'Clip'));
+}
+function removeBtn(f) {
+  return h('button', {
+    type: 'button', class: 'btn btn-small', disabled: state.busy, 'aria-label': `Remove ${f.file.name}`,
+    onclick: () => { state.local = state.local.filter((x) => x !== f); renderAll(); },
+  }, 'Remove');
+}
+
 function chosenViews() {
-  return Object.keys(state.views).filter((v) => {
-    if (!marksValid(v)) return false;
-    return v in state.make ? state.make[v] : !state.marks[v].estimated;
+  const all = views();
+  return Object.keys(all).filter((v) => {
+    const ready = state.whole || marksValid(all, state.marks, v);
+    if (!ready) return false;
+    const estimated = !state.whole && state.marks[v] && state.marks[v].estimated;
+    return v in state.make ? state.make[v] : !estimated;
   });
 }
 
 function renderMake() {
+  const all = views();
   const items = [];
-  for (const view of Object.keys(state.views)) {
-    const ok = marksValid(view);
-    const len = ok ? lengthOf(view) : null;
+  for (const view of Object.keys(all)) {
+    const list = all[view];
+    const ok = state.whole || marksValid(all, state.marks, view);
     const m = state.marks[view] || {};
-    const ticked = view in state.make ? state.make[view] : !m.estimated;
-    const detail = ok
-      ? `${clockText(markClock(view, m.start))} → ${clockText(markClock(view, m.end))}${len != null ? ` · about ${formatDuration(len)}` : ''} · from ${state.views[view].length} part${state.views[view].length === 1 ? '' : 's'}${m.estimated ? ' · marks estimated, check them' : ''}`
-      : 'Set puck drop and the final buzzer first.';
+    const ticked = chosenViews().includes(view);
+    let detail;
+    if (state.whole) detail = `whole files · ${list.length} part${list.length === 1 ? '' : 's'}${list.some((p) => p.duration) ? ` · about ${formatDuration(list.reduce((s, p) => s + (p.duration || 0), 0))}` : ''}`;
+    else if (ok) {
+      const len = lengthOf(all, state.marks, view);
+      detail = `${clockText(markClock(all, view, m.start))} → ${clockText(markClock(all, view, m.end))}${len != null ? ` · about ${formatDuration(len)}` : ''} · from ${list.length} part${list.length === 1 ? '' : 's'}${m.estimated ? ' · marks estimated, check them' : ''}`;
+    } else detail = 'Set puck drop and the final buzzer, or tick Use whole files.';
     items.push(h('li', {}, h('label', {},
       h('input', { type: 'checkbox', checked: ok && ticked, disabled: !ok || state.busy, onchange: (e) => { state.make[view] = e.target.checked; renderMake(); } }),
       h('span', {}, h('strong', {}, `${view}: `), h('span', { class: ok ? '' : 'muted' }, detail)))));
   }
-  for (const view of ['PANO', 'AUTO', 'Video']) {
-    const done = state.record && state.game ? joinedFile(state.record, state.game.id, view) : null;
-    if (done && !state.views[view]) items.push(h('li', {}, h('span', {}, h('strong', {}, `${view}: `), `Full game is in Drive (${done.duration ? formatDuration(done.duration) : formatBytes(done.size)})`), h('span', { class: 'pill pill-good' }, 'Done')));
+  const clips = localClips();
+  if (clips.length) items.push(h('li', {}, h('span', {}, h('strong', {}, 'Clips: '), `${clips.length} added as they are, to the game's clips folder`)));
+  for (const view of VIEWS) {
+    const done = state.game ? joinedFile(state.record, gameId, view) : null;
+    if (done && !all[view]) items.push(h('li', {}, h('span', {}, h('strong', {}, `${view}: `), `full game is in Drive (${done.duration ? formatDuration(done.duration) : formatBytes(done.size)})`), h('span', { class: 'pill pill-good' }, 'Done')));
   }
   $('makeList').replaceChildren(...items);
-  const chosen = chosenViews();
-  $('makeBtn').disabled = state.busy || !chosen.length;
-  $('makeBtn').textContent = chosen.length > 1 ? `Make full games (${chosen.join(' + ')})` : 'Make full game';
-  if (!state.busy) $('makeNote').textContent = !isConnected() && chosen.length ? 'Connect Google at the top to save it to Drive.' : '';
+  const views_ = chosenViews();
+  const count = views_.length + (clips.length ? 1 : 0);
+  $('makeBtn').disabled = state.busy || !count;
+  $('makeBtn').textContent = views_.length > 1 ? `Save full games (${views_.join(' + ')}) to Drive` : views_.length ? `Save full game (${views_[0]}) to Drive` : clips.length ? `Save ${clips.length} clip${clips.length === 1 ? '' : 's'} to Drive` : 'Save to Drive';
+  $('wholeFiles').checked = state.whole;
+  $('wholeFiles').disabled = state.busy;
+  $('wholeFiles').closest('label').hidden = !Object.keys(all).length;
+  if (!state.busy) $('makeNote').textContent = !isConnected() && count ? 'Connect Google at the top to save to Drive.' : '';
 }
 
 function renderAll() {
-  const hasParts = Object.keys(state.views).length > 0;
+  const all = views();
   $('connectCard').hidden = isConnected();
-  $('partsCard').hidden = !hasParts;
-  $('markCard').hidden = !hasParts;
+  $('partsCard').hidden = !state.game;
   $('makeCard').hidden = !state.game;
+  const hasParts = Object.keys(all).length > 0;
+  $('markCard').hidden = !hasParts || state.whole;
+  $('make-h').textContent = `${$('markCard').hidden ? 2 : 3} · Save to Drive`;
+  if (hasParts && !state.marker) {
+    state.marker = createMarker({ views: all, marks: state.marks, game: state.game, getBlob, onChange: saveMarks });
+    $('markerRoot').replaceChildren(state.marker.el);
+  } else if (state.marker) state.marker.setViews(all);
   renderParts();
-  renderTabs();
-  renderMarks();
   renderMake();
 }
 
-// ---------- making the full game ----------
+// ---------- saving ----------
 function setProgress(fraction, text) {
   const pct = Math.round(fraction * 100);
   $('makeFill').style.width = `${pct}%`;
@@ -315,101 +255,85 @@ function setProgress(fraction, text) {
   $('makeNote').textContent = text;
 }
 
-async function makeOne(view, signal) {
-  const list = state.views[view];
-  const m = state.marks[view];
-  const a = indexOf(view, m.start.id);
-  const b = indexOf(view, m.end.id);
-  const used = list.slice(a, b + 1);
-
-  const loaded = [];
-  for (let i = 0; i < used.length; i += 1) {
-    const entry = used[i];
-    const blob = await blobFor(entry, (got, size) => setProgress(0, `${view}: loading part ${a + i + 1} from Drive (${formatBytes(got)} of ${formatBytes(size || entry.size)})…`));
-    if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
-    setProgress(0, `${view}: reading part ${a + i + 1}…`);
-    const reader = blobReader(blob);
-    loaded.push({ reader, info: await readMp4(reader) });
-  }
-  const joined = buildJoin(loaded, { startPart: 0, startSec: m.start.sec, endPart: loaded.length - 1, endSec: m.end.sec });
-  const name = joinedFileName(state.game, view);
-  const folderId = await ensureFolder(folderPath(state.game, state.team, 'full'));
-  const file = await uploadFile(joined, folderId, name, (sent) => {
-    setProgress(sent / joined.size, `${view}: saving to Drive, ${formatBytes(sent)} of ${formatBytes(joined.size)}. Keep this page open.`);
-  }, signal);
-
-  const startClock = clockSec(used[0]) != null ? clockSec(used[0]) + joined.startSec : null;
-  state.record = replaceWithJoined(state.record, state.game.id, list.map((p) => p.driveId), {
-    driveId: file.id, name, view, size: joined.size, duration: Math.round(joined.duration),
-    start: startClock != null ? Math.floor(startClock / 60) : null, startSec: startClock,
-  });
-  state.library = await saveLibrary({ ...state.library, record: state.record });
-  cacheRecord(state.record);
-
-  // Only now that the full game is safely recorded do the parts go to the trash
-  let notTrashed = 0;
-  for (const p of list) { try { await trashFile(p.driveId); } catch { notTrashed += 1; } }
-  return { name, duration: joined.duration, notTrashed };
-}
-
-async function make() {
+async function save() {
   if (!isConnected()) { toast('Connect Google first.'); return; }
   const chosen = chosenViews();
-  if (!chosen.length) return;
+  const clips = localClips();
+  if (!chosen.length && !clips.length) return;
   state.busy = true;
   state.abort = new AbortController();
+  const signal = state.abort.signal;
   $('stopBtn').hidden = false;
   $('makeProgress').hidden = false;
   $('doneCard').hidden = true;
   showError('');
-  renderMake();
-  const results = [];
+  renderAll();
+  const saved = [];
+  let notTrashed = 0;
   try {
     if (!state.library) {
       const out = await loadGoogle();
       if (!out || !out.library) throw new Error("Couldn't open the Family Hockey folder in Drive. Try again in a minute.");
       state.library = out.library;
+      state.record = out.library.record;
     }
     for (const view of chosen) {
-      const r = await makeOne(view, state.abort.signal);
-      results.push({ view, ...r });
-      delete state.views[view];
+      const all = views();
+      const parts = all[view];
+      const { joined, used } = await prepareJoin(parts, cutFor(all, state.marks, view, state.whole), getBlob, (what, got, size) => {
+        setProgress(0, `${view}: ${what}${got ? ` (${formatBytes(got)} of ${formatBytes(size)})` : ''}…`);
+      });
+      if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
+      const out = await publishJoined({
+        joined, used, parts, game: state.game, team: state.team, view, record: state.record, library: state.library, signal,
+        onSent: (sent) => setProgress(sent / joined.size, `${view}: saving to Drive, ${formatBytes(sent)} of ${formatBytes(joined.size)}. Keep this page open.`),
+      });
+      state.record = out.record;
+      state.library = out.library;
+      cacheRecord(state.record);
+      notTrashed += out.notTrashed;
+      state.local = state.local.filter((f) => !(f.kind === 'full' && f.view === view));
+      delete state.marks[view];
+      saved.push(`${view} full game (${formatDuration(joined.duration)})`);
+    }
+    for (const c of clips) {
+      if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
+      const out = await publishClip({
+        file: c.file, duration: c.duration, game: state.game, team: state.team, record: state.record, library: state.library, signal,
+        onSent: (sent) => setProgress(sent / c.size, `Clip ${c.file.name}: ${formatBytes(sent)} of ${formatBytes(c.size)}`),
+      });
+      state.record = out.record;
+      state.library = out.library;
+      cacheRecord(state.record);
+      state.local = state.local.filter((f) => f !== c);
+      saved.push(`clip ${out.name}`);
     }
   } catch (err) {
-    if (err.name === 'AbortError') toast('Stopped. Nothing was changed for the view that was in progress.');
-    else if (err instanceof NotConnectedError) toast('Google sign-in ran out. Press Reconnect Google, then Make full game again.', 8000);
+    if (err.name === 'AbortError') toast('Stopped. Anything already saved stays in Drive.');
+    else if (err instanceof NotConnectedError) toast('Google sign-in ran out. Press Reconnect Google, then Save again.', 8000);
     else if (err instanceof Mp4Error) showError(err.message);
-    else showError(`Couldn't make the full game: ${err.message}`);
+    else showError(`Couldn't save to Drive: ${err.message}`);
   } finally {
     state.busy = false;
     state.abort = null;
     $('stopBtn').hidden = true;
     $('makeProgress').hidden = true;
-    if (!Object.keys(state.views).includes(state.view)) {
-      state.view = Object.keys(state.views)[0] || '';
-      state.part = 0;
-      $('player').removeAttribute('src');
-      $('player').load();
-      if (state.view) showPart(0);
-    }
+    if (state.marker && !Object.keys(views()).length) { state.marker.destroy(); state.marker = null; }
     renderAll();
   }
-  if (results.length) {
-    const bits = results.map((r) => `${r.view}: ${formatDuration(r.duration)}`);
-    const trashNote = results.some((r) => r.notTrashed) ? ' Some parts couldn\'t be moved to the trash; you can delete them in Drive.' : ' The parts are in Drive\'s trash.';
-    $('doneText').textContent = `Saved the full game to Drive (${bits.join(', ')}).${trashNote}`;
+  if (saved.length) {
+    $('doneText').textContent = `Saved to Drive: ${saved.join(', ')}.${notTrashed ? ' Some parts couldn\'t be moved to the trash; you can delete them in Drive.' : ''}`;
     $('doneCard').hidden = false;
     $('driveLink').hidden = true;
-    ensureFolder(folderPath(state.game, state.team, 'full')).then((id) => { $('driveLink').href = driveFolderLink(id); $('driveLink').hidden = false; }).catch(() => {});
+    ensureFolder(folderPath(state.game, state.team, 'full').slice(0, -1)).then((id) => { $('driveLink').href = driveFolderLink(id); $('driveLink').hidden = false; }).catch(() => {});
   }
 }
 
 // ---------- page setup ----------
-function loadFromRecord() {
-  state.views = partsByView(state.record, gameId);
+function loadMarks() {
   const saved = (state.record.games[gameId] && state.record.games[gameId].marks) || {};
-  for (const v of Object.keys(state.views)) if (!state.marks[v] && saved[v]) state.marks[v] = saved[v];
-  if (!state.views[state.view]) { state.view = state.views.PANO ? 'PANO' : Object.keys(state.views)[0] || ''; state.part = 0; }
+  for (const v of Object.keys(saved)) if (!state.marks[v]) state.marks[v] = saved[v];
+  if (state.marker) state.marker.setMarks(state.marks);
 }
 
 async function onConnected() {
@@ -417,33 +341,21 @@ async function onConnected() {
   if (out && out.library) {
     state.library = out.library;
     state.record = out.library.record;
-    loadFromRecord();
+    for (const f of state.local) f.blocked = blockReason(f);
+    loadMarks();
   }
   if (out && out.problems.length) toast(out.problems.join(' '), 8000);
   renderAll();
-  if (state.view && !$('player').src && state.blobs.size) showPart(state.part);
-  else if (state.view && !$('player').src) $('playerNote').textContent = 'Pick a part above to load it, or pick the files on this PC for a faster start.';
 }
 
 function wire() {
-  $('fileInput').addEventListener('change', (e) => { pickLocal([...e.target.files]); e.target.value = ''; });
+  $('fileInput').addEventListener('change', (e) => { pickFiles([...e.target.files]); e.target.value = ''; });
   const zone = $('dropZone');
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragging'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));
-  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragging'); pickLocal([...e.dataTransfer.files]); });
-  const player = $('player');
-  player.addEventListener('timeupdate', paintClock);
-  player.addEventListener('seeked', paintClock);
-  $('back10').addEventListener('click', () => nudge(-10));
-  $('back1').addEventListener('click', () => nudge(-1));
-  $('fwd1').addEventListener('click', () => nudge(1));
-  $('fwd10').addEventListener('click', () => nudge(10));
-  $('jumpSched').addEventListener('click', () => { const t = parseHHMMSafe(state.game.time); if (Number.isFinite(t)) goToClock(t * 60); });
-  $('setStart').addEventListener('click', () => setMark('start'));
-  $('setEnd').addEventListener('click', () => setMark('end'));
-  $('goStart').addEventListener('click', () => goToMark('start'));
-  $('goEnd').addEventListener('click', () => goToMark('end'));
-  $('makeBtn').addEventListener('click', make);
+  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragging'); if (!state.busy) pickFiles([...e.dataTransfer.files]); });
+  $('wholeFiles').addEventListener('change', (e) => { state.whole = e.target.checked; state.make = {}; renderAll(); });
+  $('makeBtn').addEventListener('click', save);
   $('stopBtn').addEventListener('click', () => { if (state.abort) state.abort.abort(); });
   window.addEventListener('beforeunload', (e) => { if (state.busy) { e.preventDefault(); e.returnValue = ''; } });
 }
@@ -466,18 +378,12 @@ async function start() {
     return;
   }
   state.team = TEAMS.find((t) => t.key === state.game.teamKey);
-  $('title').textContent = `${state.game.opponentLabel}`;
-  $('subtitle').textContent = `${state.game.kid} · ${state.team ? state.team.label : ''} · ${dayLabel(state.game.date)} · ${timeLabel(state.game.time)} · ${state.game.rink || ''}`.replace(/ · $/, '');
+  $('title').textContent = state.game.opponentLabel;
+  $('subtitle').textContent = [state.game.kid, state.team && state.team.label, dayLabel(state.game.date), timeLabel(state.game.time), state.game.rink].filter(Boolean).join(' · ');
   document.title = `${state.game.opponentLabel} · Family Watch Party`;
-  loadFromRecord();
+  loadMarks();
   renderAll();
-  if (isConnected()) { await onConnected(); return; }
-  if (!Object.keys(state.views).length) {
-    const done = ['PANO', 'AUTO', 'Video'].some((v) => joinedFile(state.record, gameId, v));
-    if (!done && !isConnected()) $('makeNote').textContent = 'Connect Google to load this game\'s files.';
-  } else if (!isConnected()) {
-    $('playerNote').textContent = 'Pick the files on this PC to start, or connect Google to load them from Drive.';
-  }
+  if (isConnected()) await onConnected();
 }
 
 start();

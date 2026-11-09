@@ -102,3 +102,6 @@ table.games td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-
   main { padding: 16px; }
   .app-header { padding: 10px 16px; }
 }
+
+.c-action { text-align: right; }
+.action-link { display: block; margin-top: 6px; white-space: nowrap; }

@@ -127,10 +127,10 @@ export function setMarks(record, gameId, view, marks, now = new Date().toISOStri
 // Swap the parts for the joined file. The parts' original names stay on the new entry so they're never imported twice.
 export function replaceWithJoined(record, gameId, partIds, entry, now = new Date().toISOString()) {
   const games = { ...record.games };
-  const g = games[gameId];
+  const g = games[gameId] || { files: [] };
   const ids = new Set(partIds);
   const parts = g.files.filter((f) => ids.has(f.driveId));
-  const originals = parts.flatMap((f) => [f.original, ...(f.originals || [])]).filter(Boolean);
+  const originals = [...parts.flatMap((f) => [f.original, ...(f.originals || [])]), ...(entry.originals || [])].filter(Boolean);
   const files = g.files.filter((f) => !ids.has(f.driveId));
   files.push({ ...entry, kind: 'full', joined: true, originals, addedAt: now });
   games[gameId] = { ...g, files };

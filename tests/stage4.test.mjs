@@ -67,5 +67,40 @@ test('the Google pass is kept only for the tab, never in long-term storage', () 
 test('every page loads its Google data by itself when the tab is already signed in', () => {
   assert.match(read('js/home.js'), /if \(isConnected\(\)\) await refreshGoogle\(\)/);
   assert.match(read('js/import-page.js'), /if \(isConnected\(\)\) await onConnected\(\)/);
-  assert.match(read('js/join-page.js'), /if \(isConnected\(\)\) \{ await onConnected\(\)/);
+  assert.match(read('js/join-page.js'), /if \(isConnected\(\)\) await onConnected\(\)/);
+});
+
+test('marker helpers: marks, whole files, and estimates for the other view', async () => {
+  const { applyMark, marksValid, cutFor, markClock } = await import('../js/marker.js');
+  const views = {
+    PANO: [{ id: 'a', clock: 47663 }, { id: 'b', clock: 48563 }],
+    AUTO: [{ id: 'x', clock: 47660 }],
+  };
+  let marks = applyMark(views, {}, 'PANO', 'start', { id: 'a', sec: 95 });
+  marks = applyMark(views, marks, 'PANO', 'end', { id: 'b', sec: 1200 });
+  assert.equal(marksValid(views, marks, 'PANO'), true);
+  assert.equal(markClock(views, 'PANO', marks.PANO.start), 47758);
+  assert.equal(marks.AUTO.estimated, true);
+  assert.deepEqual(marks.AUTO.start, { id: 'x', sec: 98 });
+  assert.deepEqual(cutFor(views, marks, 'PANO', false), { first: 0, last: 1, startSec: 95, endSec: 1200 });
+  assert.deepEqual(cutFor(views, marks, 'PANO', true), { first: 0, last: 1, startSec: 0, endSec: null });
+  // setting a mark on AUTO yourself replaces the estimate and doesn't touch PANO
+  marks = applyMark(views, marks, 'AUTO', 'start', { id: 'x', sec: 101 });
+  assert.equal(marks.AUTO.estimated, false);
+  assert.equal(marks.PANO.start.sec, 95);
+});
+
+test('a joined file can be recorded for a game with nothing in Drive yet', () => {
+  const r = replaceWithJoined(emptyRecord(), 'new-game', [], { driveId: 'j', name: 'x', view: 'PANO', size: 5, originals: [{ name: 'a.mp4', size: 1 }] }, 'T');
+  assert.equal(joinedFile(r, 'new-game', 'PANO').driveId, 'j');
+  assert.equal(alreadyImported(r, { name: 'a.mp4', size: 1 }), true);
+});
+
+test('import and game pages use the shared marker and publisher', () => {
+  for (const f of ['js/import-page.js', 'js/join-page.js']) {
+    assert.match(read(f), /from '\.\/marker\.js'/, f);
+    assert.match(read(f), /from '\.\/publish\.js'/, f);
+    assert.doesNotMatch(read(f), /innerHTML/, f);
+  }
+  assert.doesNotMatch(read('js/import-page.js'), /fullGameFileName/, 'bulk import no longer uploads loose parts');
 });

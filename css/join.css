@@ -40,3 +40,10 @@
   .nudge .btn-small { flex: 1; min-width: 0; padding: 0 8px; }
   #jumpSched { flex-basis: 100%; }
 }
+
+.marker-tabs { justify-content: space-between; }
+.check-line { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.check-line input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.parts-list select { min-height: 36px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); font: 13px var(--font-sans); }
+.part-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.warn-text { color: var(--work); }

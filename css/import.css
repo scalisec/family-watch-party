@@ -40,3 +40,11 @@ tr.skipped td { opacity: .55; }
   .imports .c-status { grid-area: status; }
   .imports .c-game select { min-width: 0; }
 }
+
+.game-groups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.game-groups > li { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--line); }
+.game-groups > li:first-child { border-top: 0; }
+.group-main { display: flex; flex-direction: column; gap: 2px; min-width: 220px; flex: 1; }
+.group-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.group-actions label { display: flex; gap: 8px; align-items: center; cursor: pointer; font-size: 13px; }
+.group-actions input { width: 18px; height: 18px; }
