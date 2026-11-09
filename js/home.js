@@ -188,6 +188,7 @@ async function start() {
     $('recentBody').replaceChildren(h('tr', {}, h('td', { colspan: 8 },
       h('div', { class: 'error-box' }, "Couldn't load the league schedules. Check your connection and reload the page."))));
   }
+  if (isConnected()) await refreshGoogle();
 }
 
 $('showMore').addEventListener('click', () => { state.shown += RECENT_PAGE; render(); });

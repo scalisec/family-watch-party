@@ -471,6 +471,7 @@ async function start() {
   document.title = `${state.game.opponentLabel} · Family Watch Party`;
   loadFromRecord();
   renderAll();
+  if (isConnected()) { await onConnected(); return; }
   if (!Object.keys(state.views).length) {
     const done = ['PANO', 'AUTO', 'Video'].some((v) => joinedFile(state.record, gameId, v));
     if (!done && !isConnected()) $('makeNote').textContent = 'Connect Google to load this game\'s files.';

@@ -1,5 +1,6 @@
-// Google sign-in (Google Identity Services token client). The access token lives only in
-// memory for this page; nothing secret is stored. Each visit needs one click to connect.
+// Google sign-in (Google Identity Services token client). The short-lived access token (about an hour)
+// is kept in sessionStorage so it carries across this app's pages in the same tab. It is erased when
+// the tab closes, when it expires, or on disconnect. No refresh token or password is ever stored.
 import { GOOGLE_CLIENT_ID, GOOGLE_SCOPES } from './config.js';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
@@ -8,6 +9,27 @@ let token = null;
 let expiresAt = 0;
 let email = '';
 const listeners = new Set();
+const SESSION_KEY = 'fwp.session';
+let expiryTimer = null;
+
+function saveSession() {
+  try {
+    if (token) sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, expiresAt }));
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch { /* fine: just means one more click */ }
+}
+function watchExpiry() {
+  clearTimeout(expiryTimer);
+  if (token) expiryTimer = setTimeout(() => { forget(); }, Math.max(0, expiresAt - Date.now()));
+}
+function forget() { token = null; expiresAt = 0; saveSession(); clearTimeout(expiryTimer); notify(); }
+function restoreSession() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+    if (saved && saved.token && Date.now() < saved.expiresAt) { token = saved.token; expiresAt = saved.expiresAt; watchExpiry(); }
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch { /* fine */ }
+}
 
 function remember(key, value) {
   try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* fine */ }
@@ -21,6 +43,7 @@ export function isConnected() { return Boolean(token) && Date.now() < expiresAt;
 export function accountEmail() { return email || recall('fwp.googleEmail'); }
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function notify() { for (const fn of listeners) fn(isConnected()); }
+restoreSession();
 
 export function setAccountEmail(value) {
   email = value || '';
@@ -56,6 +79,8 @@ export async function connect() {
       token = resp.access_token;
       expiresAt = Date.now() + (Number(resp.expires_in) - 120) * 1000;
       remember('fwp.google', '1');
+      saveSession();
+      watchExpiry();
       notify();
       resolve();
     };
@@ -70,22 +95,20 @@ export async function connect() {
 
 export function disconnect() {
   if (token && window.google && window.google.accounts) window.google.accounts.oauth2.revoke(token, () => {});
-  token = null;
-  expiresAt = 0;
   remember('fwp.google', null);
   setAccountEmail('');
-  notify();
+  forget();
 }
 
 export class NotConnectedError extends Error {
-  constructor() { super('Google Drive is not connected. Press Connect Google, then try again.'); this.code = 'not-connected'; }
+  constructor(message) { super(message || 'Google Drive is not connected. Press Connect Google, then try again.'); this.code = 'not-connected'; }
 }
 
 // fetch with the access token. Throws NotConnectedError when the token has run out.
 export async function gfetch(url, options = {}) {
-  if (!isConnected()) { token = null; notify(); throw new NotConnectedError(); }
+  if (!isConnected()) { if (token) forget(); throw new NotConnectedError(); }
   const res = await fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
-  if (res.status === 401) { token = null; notify(); throw new NotConnectedError(); }
+  if (res.status === 401) { forget(); throw new NotConnectedError(); }
   return res;
 }
 

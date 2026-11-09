@@ -279,6 +279,7 @@ async function start() {
     toast("Couldn't load the league schedules, so files can't be matched yet. Reload the page to try again.", 8000);
   }
   render();
+  if (isConnected()) await onConnected();
 }
 
 $('driveLink').hidden = true;

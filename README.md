@@ -50,7 +50,7 @@ The app runs entirely in the browser and talks only to Google's own API hosts. I
 | `drive.file` | Create the **Family Hockey** folders and upload games and clips. It can only see files this app created, not the rest of your Drive. |
 | `calendar.readonly` | Read the two TeamSnap calendars synced into Google Calendar, to add tournament games the league feeds don't have. It can't change anything. |
 
-The sign-in token is kept in memory only and is gone when the tab closes. While the Google Cloud project is in Testing mode, Google shows an "unverified app" screen (press Continue) and asks again about once a week.
+The sign-in pass (it lasts about an hour) is kept only for the browser tab, so moving between screens keeps you connected. It is erased when the tab closes or the pass expires; nothing longer-lived is ever stored. While the Google Cloud project is in Testing mode, Google shows an "unverified app" screen (press Continue) and asks again about once a week.
 
 What the app has stored is listed in `Family Hockey/family-watch-party-record.json` in Drive (which games have files, and each file's original name and size so nothing is imported twice).
 

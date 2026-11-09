@@ -56,3 +56,16 @@ test('join page exists, uses only its own ids, and never uses innerHTML', () => 
 test('home links games with parts to the join page', () => {
   assert.match(read('js/home.js'), /join\.html\?game=/);
 });
+
+test('the Google pass is kept only for the tab, never in long-term storage', () => {
+  const g = read('js/google.js');
+  assert.match(g, /sessionStorage\.setItem\(SESSION_KEY/);
+  for (const m of g.matchAll(/localStorage\.setItem\(([^)]*)\)/g)) assert.doesNotMatch(m[1], /token/i);
+  assert.doesNotMatch(g, /refresh_token|client_secret/);
+});
+
+test('every page loads its Google data by itself when the tab is already signed in', () => {
+  assert.match(read('js/home.js'), /if \(isConnected\(\)\) await refreshGoogle\(\)/);
+  assert.match(read('js/import-page.js'), /if \(isConnected\(\)\) await onConnected\(\)/);
+  assert.match(read('js/join-page.js'), /if \(isConnected\(\)\) \{ await onConnected\(\)/);
+});
