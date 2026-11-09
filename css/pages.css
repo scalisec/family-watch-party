@@ -1,0 +1,20 @@
+/* Clips and Settings */
+.clip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.clip-card { gap: 8px; }
+.clip-card p { margin: 0; }
+.clip-title { margin: 0; font-size: 16px; word-break: break-word; }
+
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.choice { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.choice legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+.choice label { display: flex; gap: 10px; align-items: flex-start; min-height: 32px; cursor: pointer; }
+.choice input { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+.choice label.disabled { color: var(--muted); cursor: default; }
+.team-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.team-list li { display: flex; gap: 12px; align-items: center; }
+.team-list .logo { width: 40px; height: 40px; }
+.block { display: block; }
+
+@media (max-width: 720px) {
+  .settings-grid { grid-template-columns: 1fr; }
+}

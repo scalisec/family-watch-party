@@ -90,3 +90,11 @@ table.results th { color: var(--muted); font-weight: 600; width: 45%; }
 input[type="file"] { color: var(--ink); }
 input[type="range"] { width: 100%; }
 label { font-size: 13px; font-weight: 600; }
+
+/* Toggle buttons (kid filter, views, parts) */
+.tab {
+  min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong);
+  background: transparent; color: var(--on-navy); font: 600 13px var(--font-sans); cursor: pointer;
+}
+.tab:hover { background: var(--surface-2); }
+.tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }

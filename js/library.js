@@ -160,3 +160,16 @@ export function totals(record) {
   for (const g of Object.values(record.games)) for (const f of g.files) { if (f.kind === 'full') full += 1; else clips += 1; bytes += f.size || 0; }
   return { games, full, clips, bytes };
 }
+
+// All clips with their game, newest game first
+export function clipList(record, games) {
+  const out = [];
+  for (const [gameId, g] of Object.entries(record.games || {})) {
+    for (const f of g.files || []) {
+      if (f.kind !== 'clip') continue;
+      out.push({ ...f, gameId, game: games.get(gameId) || null });
+    }
+  }
+  return out.sort((a, b) => ((b.game && b.game.startMs) || 0) - ((a.game && a.game.startMs) || 0)
+    || String(b.addedAt || '').localeCompare(String(a.addedAt || '')));
+}

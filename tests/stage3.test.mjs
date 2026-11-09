@@ -222,7 +222,7 @@ test('Google calls go only to Google\'s API hosts', () => {
 
 test('version matches across every page', () => {
   const v = JSON.parse(read('package.json')).version.replace(/\./g, '\\.');
-  for (const page of ['index.html', 'pano-check.html', 'helper-test.html', 'import.html', 'join.html']) {
+  for (const page of ['index.html', 'pano-check.html', 'helper-test.html', 'import.html', 'join.html', 'clips.html', 'settings.html']) {
     assert.match(read(page), new RegExp(`V${v}<`), page);
   }
 });

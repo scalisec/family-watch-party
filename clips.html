@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clips · Family Watch Party</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/join.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="lockup" href="index.html">
+      <span class="app-icon" aria-hidden="true">FWP</span>
+      <span>
+        <span class="app-name">Family Watch Party</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.6.0</span>
+      </span>
+    </a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html">Games</a>
+      <a href="clips.html" aria-current="page">Clips</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+    <div class="row">
+      <button id="googleBtn" class="chip chip-btn chip-action" type="button">Connect Google</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="title-row">
+      <h1>Clips</h1>
+      <div id="kidFilter" class="row" role="group" aria-label="Show clips for"></div>
+    </div>
+
+    <section id="connectCard" class="card card-accent" aria-labelledby="connect-h" hidden>
+      <h2 id="connect-h">Connect Google</h2>
+      <p class="muted">Your clips live in your Family Hockey folder in Drive. Press <strong>Connect Google</strong> at the top to see them and play, save or share them.</p>
+    </section>
+
+    <section id="playerCard" class="card" aria-labelledby="player-h" hidden>
+      <div class="section-head">
+        <h2 id="player-h">Clip</h2>
+        <button id="closePlayer" class="btn btn-small" type="button">Close</button>
+      </div>
+      <p id="playerSub" class="small muted"></p>
+      <div class="player-box">
+        <video id="player" controls playsinline></video>
+        <p id="playerNote" class="player-note"></p>
+      </div>
+    </section>
+
+    <section aria-labelledby="list-h" class="stack">
+      <div class="section-head">
+        <h2 id="list-h">All clips</h2>
+        <span id="summary" class="small muted"></span>
+      </div>
+      <div id="clipGrid" class="clip-grid"></div>
+      <div id="emptyCard" class="card" hidden>
+        <h3 id="emptyTitle">No clips yet</h3>
+        <p id="emptyText" class="muted"></p>
+        <div class="row"><a class="btn" href="import.html">Import downloads</a></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/clips-page.js"></script>
+</body>
+</html>

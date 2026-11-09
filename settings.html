@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings · Family Watch Party</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="lockup" href="index.html">
+      <span class="app-icon" aria-hidden="true">FWP</span>
+      <span>
+        <span class="app-name">Family Watch Party</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.6.0</span>
+      </span>
+    </a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html">Games</a>
+      <a href="clips.html">Clips</a>
+      <a href="settings.html" aria-current="page">Settings</a>
+    </nav>
+    <div class="row">
+      <button id="googleBtn" class="chip chip-btn chip-action" type="button">Connect Google</button>
+    </div>
+  </header>
+
+  <main>
+    <h1>Settings</h1>
+
+    <div class="settings-grid">
+      <section class="card" aria-labelledby="google-h">
+        <h2 id="google-h">Google account</h2>
+        <p id="googleStatus" class="muted">Not connected.</p>
+        <p class="small muted">Family Watch Party can only see the files and folders it created in your Drive, and can read (not change) your calendars to find the TeamSnap games.</p>
+        <div class="row">
+          <button id="signOut" class="btn" type="button" hidden>Sign out of Google here</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="drive-h">
+        <h2 id="drive-h">Google Drive</h2>
+        <p id="driveStatus" class="muted">Connect Google to see your Family Hockey folder.</p>
+        <div class="meter" role="img" aria-label="Drive storage used" id="driveMeter" hidden><div id="driveBar" class="meter-fill" style="width: 0%"></div></div>
+        <p id="familyTotals" class="small muted"></p>
+        <div class="row"><a id="folderLink" class="btn" target="_blank" rel="noopener" hidden>Open Family Hockey in Drive</a></div>
+      </section>
+
+      <section class="card" aria-labelledby="dl-h">
+        <h2 id="dl-h">Downloads from LiveBarn</h2>
+        <fieldset class="choice">
+          <legend>Camera view to download</legend>
+          <label><input type="radio" name="view" value="PANO"> <span><strong>PANO</strong> · the whole ice, so you can zoom and follow your kid</span></label>
+          <label><input type="radio" name="view" value="AUTO"> <span><strong>AUTO</strong> · LiveBarn's camera that follows the puck</span></label>
+        </fieldset>
+        <fieldset class="choice">
+          <legend>Where games are kept</legend>
+          <label><input type="radio" name="store" value="drive" checked> <span><strong>Google Drive</strong> · Family Hockey folder</span></label>
+          <label class="disabled"><input type="radio" name="store" value="nas" disabled> <span><strong>NAS</strong> · comes later, with a way to move what's already in Drive</span></label>
+        </fieldset>
+        <p id="viewNote" class="small muted" role="status"></p>
+      </section>
+
+      <section class="card" aria-labelledby="teams-h">
+        <h2 id="teams-h">Kids and teams</h2>
+        <ul id="teamList" class="team-list"></ul>
+        <p class="small muted">Games and scores come from the league schedules your Alliance Tracker publishes; tournaments come from the TeamSnap calendars in Google Calendar. Changing a team or adding next season is an app update: ask Claude.</p>
+      </section>
+
+      <section class="card" aria-labelledby="helper-h">
+        <h2 id="helper-h">LiveBarn helper</h2>
+        <p id="helperStatus" class="muted">Checking…</p>
+        <div class="row">
+          <a class="btn" href="helper-test.html">Helper test</a>
+          <a class="btn" href="pano-check.html">PANO check</a>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="reset-h">
+        <h2 id="reset-h">This browser</h2>
+        <p class="small muted">The app keeps a few things in this browser to load faster: the schedules it last saw, folder locations in Drive, and your filters. Resetting clears them and signs you out here. Nothing in Drive is touched.</p>
+        <div class="row">
+          <button id="resetBtn" class="btn" type="button">Reset saved info</button>
+          <span id="resetNote" class="small muted" role="status"></span>
+        </div>
+        <p id="version" class="small muted"></p>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/settings-page.js"></script>
+</body>
+</html>
