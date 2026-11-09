@@ -98,3 +98,12 @@ label { font-size: 13px; font-weight: 600; }
 }
 .tab:hover { background: var(--surface-2); }
 .tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* "New version" bar */
+.update-bar {
+  position: sticky; top: 0; z-index: 50; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;
+  padding: 8px 16px; background: var(--accent); color: var(--on-accent, #fff); font-weight: 600; font-size: 14px;
+}
+.update-bar .btn { min-height: 34px; }
+.update-bar .btn:not(.btn-primary) { background: transparent; color: inherit; border-color: rgba(255,255,255,.6); }
+.update-bar .btn-primary { background: #fff; color: var(--navy); border-color: #fff; }

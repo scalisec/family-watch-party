@@ -2,6 +2,16 @@
 import { currentToken, onChange } from './google.js';
 
 let ready = null;
+let registered = null;
+
+// Installs the app's service worker (needed for streaming and for installing the app).
+export function registerApp() {
+  if (registered) return registered;
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return Promise.resolve(null);
+  registered = navigator.serviceWorker.register(new URL('../sw.js', import.meta.url), { scope: new URL('../', import.meta.url).pathname })
+    .catch(() => null);
+  return registered;
+}
 
 function sendToken() {
   const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
@@ -16,7 +26,7 @@ export function streamReady() {
     navigator.serviceWorker.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'fwp-token-request' && e.ports[0]) e.ports[0].postMessage({ token: currentToken() || '' });
     });
-    await navigator.serviceWorker.register(new URL('../sw.js', import.meta.url), { scope: new URL('../', import.meta.url).pathname });
+    await registerApp();
     if (!navigator.serviceWorker.controller) {
       await new Promise((resolve) => {
         navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });

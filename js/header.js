@@ -2,6 +2,34 @@
 import { $, toast } from './ui.js';
 import { connect, isConnected, wasConnected, accountEmail, onChange } from './google.js';
 import { pingHelper } from './helper-client.js';
+import { h } from './ui.js';
+import { registerApp } from './stream.js';
+import { VERSION, compareVersions, latestVersion } from './version.js';
+import './install.js';
+
+const CHECKED_KEY = 'fwp.updateChecked';
+
+// Quietly checks for a newer version (at most every 30 minutes) and shows a bar when there is one.
+export async function quietUpdateCheck() {
+  try {
+    const last = Number(sessionStorage.getItem(CHECKED_KEY) || 0);
+    if (Date.now() - last < 30 * 60 * 1000) return;
+    sessionStorage.setItem(CHECKED_KEY, String(Date.now()));
+  } catch { /* fine */ }
+  try {
+    const latest = await latestVersion();
+    if (compareVersions(latest, VERSION) > 0) showUpdateBar(latest);
+  } catch { /* offline: try another time */ }
+}
+
+export function showUpdateBar(latest) {
+  if (document.querySelector('.update-bar')) return;
+  const bar = h('div', { class: 'update-bar', role: 'status' },
+    h('span', {}, `Version ${latest} is ready.`),
+    h('button', { type: 'button', class: 'btn btn-small btn-primary', onclick: () => location.reload() }, 'Update now'),
+    h('button', { type: 'button', class: 'btn btn-small', 'aria-label': 'Hide this note', onclick: () => bar.remove() }, 'Later'));
+  document.body.prepend(bar);
+}
 
 export function setupHeader(onConnected) {
   const btn = $('googleBtn');
@@ -30,6 +58,9 @@ export function setupHeader(onConnected) {
   });
   onChange(paint);
   paint();
+
+  registerApp();
+  quietUpdateCheck();
 
   const chip = $('helperChip');
   if (chip) {

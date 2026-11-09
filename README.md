@@ -58,6 +58,10 @@ What the app has stored is listed in `Family Hockey/family-watch-party-record.js
 
 `sw.js` is a small service worker that lets the player stream a file from Drive in pieces. It only answers this app's own `drive-stream/<id>` addresses, only fetches from `www.googleapis.com`, and asks the open page for the Google pass when it needs it, keeping it in memory only.
 
+### Releasing a new version
+
+Update the version in `package.json`, `version.json`, `js/version.js` (add a line to `RELEASES`) and each page's byline. The tests check they all match. Open copies of the app notice the new `version.json` and offer **Update now**.
+
 ## Run locally
 
 Any static file server works, for example:
@@ -84,6 +88,7 @@ node --test tests/*.test.mjs
 - [x] Clips page (`clips.html`: play, save, share, open in Drive) and Settings page (`settings.html`)
 - [x] Import straight from the PC per game (`join.html`) or in bulk (`import.html`): mark puck drop and the final buzzer (or use whole files) before upload, so each game is stored as one file per camera view
 - [x] Watch games: full games stream from Drive into a player on the game page (zoom and drag around the PANO view)
+- [x] Install the app, version and release history in Settings, update check (`js/version.js`, `version.json`)
 - [ ] Clip editor and season highlight reel
 - [ ] Stage 3b: download from LiveBarn straight into Drive, and "Pick rink" for games without a LiveBarn link
 - [ ] Stage 4: game page and player

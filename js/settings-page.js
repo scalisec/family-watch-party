@@ -6,6 +6,8 @@ import { setupHeader } from './header.js';
 import { cachedRecord, loadGoogle } from './data.js';
 import { totals } from './library.js';
 import { pingHelper } from './helper-client.js';
+import { VERSION, RELEASES, compareVersions, latestVersion, releaseDate } from './version.js';
+import { platform, canPrompt, onInstallChange, promptInstall } from './install.js';
 
 export const DEFAULT_VIEW_KEY = 'fwp.defaultView';
 export function defaultView() { return readSaved(DEFAULT_VIEW_KEY, 'PANO') === 'AUTO' ? 'AUTO' : 'PANO'; }
@@ -94,6 +96,68 @@ function setupReset() {
   });
 }
 
+// ---------- install ----------
+function setupInstall() {
+  const paint = () => {
+    const p = platform();
+    const steps = [];
+    let status;
+    $('installBtn').hidden = true;
+    if (p.standalone) status = 'Installed. You\'re using the app in its own window.';
+    else if (canPrompt()) { status = 'Add Family Watch Party to your PC or phone, with its own icon and window.'; $('installBtn').hidden = false; }
+    else if (p.iOS) {
+      status = 'On iPhone and iPad, install from Safari:';
+      steps.push('Tap the Share button (the square with an arrow).', 'Tap Add to Home Screen, then Add.');
+    } else if (p.android) {
+      status = p.installedBefore ? 'It looks like the app is already installed. Open it from your home screen.' : 'Install from the browser menu:';
+      if (!p.installedBefore) steps.push(p.samsung ? 'Tap the menu (☰), then Add page to → Home screen.' : 'Tap the menu (⋮) at the top right.', 'Tap Install app or Add to Home screen.');
+    } else {
+      status = p.installedBefore ? 'It looks like the app is already installed on this PC. Open it from the Start menu or desktop.' : 'Install from Chrome or Edge:';
+      if (!p.installedBefore) steps.push('Click the install icon at the right end of the address bar (a screen with a down arrow).', 'Or open the menu (⋮) → Cast, save and share → Install page as app.');
+    }
+    $('installStatus').textContent = status;
+    $('installSteps').replaceChildren(...steps.map((t) => h('li', {}, t)));
+    $('installSteps').hidden = !steps.length;
+  };
+  $('installBtn').addEventListener('click', async () => {
+    const outcome = await promptInstall();
+    if (outcome === 'accepted') toast('Installed. Look for Family Watch Party on your desktop or home screen.');
+    paint();
+  });
+  onInstallChange(paint);
+  paint();
+}
+
+// ---------- version ----------
+function setupVersion() {
+  const current = RELEASES.find((r) => r.version === VERSION);
+  $('versionNow').textContent = `Version ${VERSION}`;
+  $('versionDate').textContent = current ? `· released ${releaseDate(current.date)}` : '';
+  $('releaseList').replaceChildren(...RELEASES.map((r) => h('li', {},
+    h('div', { class: 'release-head' }, h('strong', {}, `Version ${r.version}`), h('span', { class: 'small muted' }, releaseDate(r.date))),
+    h('ul', {}, ...r.notes.map((n) => h('li', { class: 'small' }, n))))));
+  $('updateBtn').addEventListener('click', async () => {
+    $('updateBtn').disabled = true;
+    $('updateNote').textContent = 'Checking…';
+    try {
+      const latest = await latestVersion();
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if (reg) reg.update().catch(() => {});
+      if (compareVersions(latest, VERSION) > 0) {
+        $('updateNote').textContent = `Version ${latest} is available.`;
+        $('reloadBtn').hidden = false;
+      } else {
+        $('updateNote').textContent = `You're on the latest version (${VERSION}).`;
+      }
+    } catch (err) {
+      $('updateNote').textContent = `Couldn't check right now: ${err.message}`;
+    } finally {
+      $('updateBtn').disabled = false;
+    }
+  });
+  $('reloadBtn').addEventListener('click', () => location.reload());
+}
+
 async function start() {
   setupHeader(onConnected);
   setupView();
@@ -101,7 +165,8 @@ async function start() {
   setupReset();
   paintGoogle();
   paintTotals(cachedRecord());
-  $('version').textContent = `Version ${document.querySelector('.byline').textContent.split('·').pop().trim().replace(/^V/, '')}`;
+  setupInstall();
+  setupVersion();
   $('signOut').addEventListener('click', () => {
     disconnect();
     paintGoogle();

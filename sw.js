@@ -73,10 +73,20 @@ async function stream(event, id, size) {
   });
 }
 
+// The app's own pages and scripts: always check GitHub for a newer copy (a quick "not modified"
+// answer when nothing changed), so a new version shows up on the next load instead of up to 10 minutes later.
+function fresh(event) {
+  const req = event.request;
+  if (req.mode === 'navigate') return fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).catch(() => fetch(req));
+  return fetch(req, { cache: 'no-cache' }).catch(() => fetch(req));
+}
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin || event.request.method !== 'GET') return;
   const m = /\/drive-stream\/([A-Za-z0-9_-]{10,200})$/.exec(url.pathname);
-  if (!m) return;
-  event.respondWith(stream(event, m[1], Number(url.searchParams.get('size'))));
+  if (m) { event.respondWith(stream(event, m[1], Number(url.searchParams.get('size')))); return; }
+  if (event.request.headers.has('range')) return;
+  if (!url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
+  event.respondWith(fresh(event));
 });
