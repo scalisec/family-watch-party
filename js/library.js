@@ -57,6 +57,7 @@ export function normalizeRecord(rec) {
   if (!rec || typeof rec !== 'object' || typeof rec.games !== 'object' || rec.games === null) return emptyRecord();
   const out = { version: 1, updatedAt: rec.updatedAt || null, games: rec.games };
   if (Array.isArray(rec.reels)) out.reels = rec.reels;
+  if (rec.rinks && typeof rec.rinks === 'object') out.rinks = rec.rinks;
   return out;
 }
 

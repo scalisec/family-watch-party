@@ -107,3 +107,22 @@ label { font-size: 13px; font-weight: 600; }
 .update-bar .btn { min-height: 34px; }
 .update-bar .btn:not(.btn-primary) { background: transparent; color: inherit; border-color: rgba(255,255,255,.6); }
 .update-bar .btn-primary { background: #fff; color: var(--navy); border-color: #fff; }
+
+/* Pick rink window */
+.rink-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; padding: 20px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface, #0F2140); color: var(--ink); }
+.rink-dialog::backdrop { background: rgba(3, 9, 20, 0.7); }
+.rink-dialog h2 { margin: 0; }
+.rink-dialog p { margin: 0; }
+.field-input { min-height: 40px; width: 100%; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); font: 14px var(--font-sans); }
+.rink-list { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
+.rink-option { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; }
+.rink-option:hover { background: var(--surface-2); }
+.rink-option.picked { border-color: var(--accent); background: var(--surface-2); }
+.rink-option input { width: 18px; height: 18px; flex: none; }
+.list-label { margin-top: 6px !important; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; }
+.dialog-buttons { justify-content: flex-end; }
+.linkish { background: none; border: 0; color: var(--ink); font: inherit; cursor: pointer; padding: 4px 2px; text-decoration: underline; text-underline-offset: 2px; }
+.stack-tight { display: flex; flex-direction: column; gap: 4px; }
+.check-line { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.check-line input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.warn-text { color: var(--work); }

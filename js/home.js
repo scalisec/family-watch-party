@@ -6,6 +6,8 @@ import { isConnected, wasConnected } from './google.js';
 import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, combine, loadGoogle } from './data.js';
 import { shortTournament } from './library.js';
+import { withRinks, watchUrl } from './rinks.js';
+import { pickRink } from './rink-picker.js';
 
 const RECENT_PAGE = 12;
 const state = {
@@ -17,9 +19,15 @@ const state = {
   storage: null,
   shown: RECENT_PAGE,
   loaded: false,
+  library: null,
 };
 
-const games = () => combine(state.league, state.teamsnap);
+const games = () => withRinks(combine(state.league, state.teamsnap), state.record);
+
+async function openPicker(game) {
+  const out = await pickRink({ game, games: games(), record: state.record, library: state.library });
+  if (out) { state.record = out.record; state.library = out.library; render(); }
+}
 
 // ---------- rendering ----------
 function renderKidFilter() {
@@ -43,19 +51,24 @@ function soon(what) {
 
 function actionFor(game, status) {
   const page = `join.html?game=${encodeURIComponent(game.id)}`;
-  const importLink = h('a', { class: 'small action-link', href: page }, 'Import files');
+  const link = (text, href) => h('a', { class: 'small action-link', href }, text);
+  const lb = game.liveBarn && status.key !== 'upcoming' && status.key !== 'expired'
+    ? h('a', { class: 'small action-link', href: watchUrl(game), target: '_blank', rel: 'noopener' }, 'Open in LiveBarn ↗') : null;
+  const change = game.liveBarn && game.liveBarn.picked
+    ? h('button', { type: 'button', class: 'linkish small action-link', onclick: () => openPicker(game) }, 'Change rink') : null;
   if (status.key === 'downloaded') {
     return gameSummary(state.record, game.id).toJoin
       ? h('a', { class: 'btn btn-primary btn-small', href: page }, 'Mark start & end')
       : h('a', { class: 'btn btn-small', href: page }, 'Open');
   }
   if (status.key === 'ready' || status.key === 'leaves-soon') {
-    return [h('button', { type: 'button', class: 'btn btn-primary btn-small', onclick: () => soon('Downloading from LiveBarn') }, 'Download'), importLink];
+    return [h('button', { type: 'button', class: 'btn btn-primary btn-small', onclick: () => soon('Downloading from LiveBarn') }, 'Download'), lb, link('Import files', page), change];
   }
   if (status.key === 'no-link') {
-    return [h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('Picking the rink') }, 'Pick rink'), importLink];
+    return [h('button', { type: 'button', class: 'btn btn-small', onclick: () => openPicker(game) }, 'Pick rink'), link('Import files', page)];
   }
-  if (status.key === 'expired' || status.key === 'today') return h('a', { class: 'btn btn-small', href: page }, 'Import files');
+  if (status.key === 'today') return [h('a', { class: 'btn btn-small', href: page }, 'Import files'), lb];
+  if (status.key === 'expired') return h('a', { class: 'btn btn-small', href: page }, 'Import files');
   return null;
 }
 
@@ -78,7 +91,7 @@ function gameTag(game) {
 }
 
 function statusDetail(game, status) {
-  if (status.key !== 'downloaded') return status.detail;
+  if (status.key !== 'downloaded') return [status.detail, game.liveBarn && game.liveBarn.picked ? 'rink picked by you' : ''].filter(Boolean).join(' · ');
   const s = gameSummary(state.record, game.id);
   const parts = [s.joined ? 'Full game' : `${s.full} part${s.full === 1 ? '' : 's'}`];
   if (s.views.length) parts.push(s.views.join(' + '));
@@ -159,7 +172,7 @@ function render() {
 
   const needs = [];
   if (s.leavesSoon) needs.push(`${s.leavesSoon} game${s.leavesSoon === 1 ? ' leaves' : 's leave'} LiveBarn in the next 3 days.`);
-  if (s.noLink) needs.push(`${s.noLink} game${s.noLink === 1 ? ' has' : 's have'} no LiveBarn link in the schedule; pick the rink once and it's remembered.`);
+  if (s.noLink) needs.push(`${s.noLink} game${s.noLink === 1 ? ' has' : 's have'} no LiveBarn link in the schedule: press Pick rink on ${s.noLink === 1 ? 'it' : 'one'}, and you can use the same rink for the other games there.`);
   $('needsYou').hidden = needs.length === 0;
   $('needsText').textContent = needs.join(' ');
 }
@@ -170,7 +183,7 @@ async function refreshGoogle() {
   const out = await loadGoogle();
   if (!out) return;
   if (out.about) state.storage = out.about.storageQuota;
-  if (out.library) state.record = out.library.record;
+  if (out.library) { state.record = out.library.record; state.library = out.library; }
   if (out.teamsnap) state.teamsnap = out.teamsnap;
   if (out.problems.length) { $('googleNote').textContent = out.problems.join(' '); $('googleNote').hidden = false; }
   render();

@@ -15,6 +15,8 @@ import { prepareJoin, publishJoined, publishClip } from './publish.js';
 import { streamReady, streamUrl } from './stream.js';
 import { createWatcher } from './watch.js';
 import { createClipEditor } from './clip-editor.js';
+import { withRinks, watchUrl } from './rinks.js';
+import { pickRink } from './rink-picker.js';
 
 const gameId = new URLSearchParams(location.search).get('game') || '';
 const VIEWS = ['PANO', 'AUTO', 'Video'];
@@ -311,6 +313,27 @@ function openEditor() {
   $('clipCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ---------- LiveBarn rink ----------
+function renderLinks() {
+  const g = state.game;
+  if (!g) { $('gameLinks').replaceChildren(); return; }
+  const played = g.startMs <= Date.now();
+  const items = [];
+  if (g.liveBarn && played) items.push(h('a', { class: 'btn btn-small', href: watchUrl(g), target: '_blank', rel: 'noopener' }, 'Open in LiveBarn ↗'));
+  if (g.liveBarn && g.liveBarn.picked) items.push(h('button', { type: 'button', class: 'btn btn-small', onclick: openPicker }, `Change rink (LiveBarn #${g.liveBarn.surfaceId})`));
+  if (!g.liveBarn) items.push(h('button', { type: 'button', class: 'btn btn-small', onclick: openPicker }, 'Pick the LiveBarn rink'));
+  $('gameLinks').replaceChildren(...items);
+}
+
+async function openPicker() {
+  const out = await pickRink({ game: state.game, games: withRinks(state.allGames, state.record), record: state.record, library: state.library });
+  if (!out) return;
+  state.record = out.record;
+  state.library = out.library;
+  state.game = withRinks([state.baseGame], state.record)[0];
+  renderLinks();
+}
+
 function renderAll() {
   const all = views();
   $('connectCard').hidden = isConnected();
@@ -326,6 +349,7 @@ function renderAll() {
   renderParts();
   renderMake();
   renderWatch();
+  renderLinks();
 }
 
 // ---------- saving ----------
@@ -423,6 +447,7 @@ async function onConnected() {
     state.library = out.library;
     state.record = out.library.record;
     for (const f of state.local) f.blocked = blockReason(f);
+    if (state.baseGame) state.game = withRinks([state.baseGame], state.record)[0];
     loadMarks();
   }
   if (out && out.problems.length) toast(out.problems.join(' '), 8000);
@@ -452,7 +477,9 @@ async function start() {
   } catch {
     showError("Couldn't load the schedules. Reload the page to try again.");
   }
-  state.game = games.find((g) => g.id === gameId) || null;
+  state.allGames = games;
+  state.baseGame = games.find((g) => g.id === gameId) || null;
+  state.game = state.baseGame ? withRinks([state.baseGame], state.record)[0] : null;
   if (!state.game) {
     $('subtitle').textContent = '';
     if (games.length) showError("That game isn't in the schedule any more. Go back to Games and pick it again.");
