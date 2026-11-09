@@ -40,6 +40,8 @@ function recall(key) {
 
 export function wasConnected() { return recall('fwp.google') === '1'; }
 export function isConnected() { return Boolean(token) && Date.now() < expiresAt; }
+// The pass itself, only for handing to this app's own streaming helper (sw.js).
+export function currentToken() { return isConnected() ? token : null; }
 export function accountEmail() { return email || recall('fwp.googleEmail'); }
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function notify() { for (const fn of listeners) fn(isConnected()); }

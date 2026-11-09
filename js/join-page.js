@@ -12,6 +12,8 @@ import { saveLibrary, downloadFile, ensureFolder } from './drive.js';
 import { Mp4Error } from './mp4.js';
 import { createMarker, marksValid, lengthOf, markClock, clockText, cutFor } from './marker.js';
 import { prepareJoin, publishJoined, publishClip } from './publish.js';
+import { streamReady, streamUrl } from './stream.js';
+import { createWatcher } from './watch.js';
 
 const gameId = new URLSearchParams(location.search).get('game') || '';
 const VIEWS = ['PANO', 'AUTO', 'Video'];
@@ -31,6 +33,9 @@ const state = {
   abort: null,
   marker: null,
   nextId: 1,
+  watchView: '',
+  watcher: null,
+  watchingId: '',
 };
 
 const showError = (text) => { $('pageError').textContent = text; $('pageError').hidden = !text; };
@@ -231,6 +236,42 @@ function renderMake() {
   if (!state.busy) $('makeNote').textContent = !isConnected() && count ? 'Connect Google at the top to save to Drive.' : '';
 }
 
+// ---------- watching ----------
+function finishedFiles() {
+  return VIEWS.map((v) => joinedFile(state.record, gameId, v)).filter(Boolean);
+}
+
+async function renderWatch() {
+  const files = finishedFiles();
+  $('watchCard').hidden = !files.length;
+  if (!files.length) { if (state.watcher) { state.watcher.destroy(); state.watcher = null; state.watchingId = ''; } return; }
+  if (!files.some((f) => (f.view || 'Video') === state.watchView)) state.watchView = (files.find((f) => f.view === 'PANO') || files[0]).view || 'Video';
+  $('watchTabs').replaceChildren(...(files.length > 1 ? files.map((f) => h('button', {
+    type: 'button', class: 'tab', 'aria-pressed': String((f.view || 'Video') === state.watchView),
+    onclick: () => { state.watchView = f.view || 'Video'; renderWatch(); },
+  }, f.view || 'Video')) : []));
+  const file = files.find((f) => (f.view || 'Video') === state.watchView);
+  if (state.watchingId === file.driveId) return;
+  if (!isConnected()) {
+    $('watchRoot').replaceChildren(h('p', { class: 'muted' }, 'Connect Google at the top to watch this game.'));
+    return;
+  }
+  state.watchingId = file.driveId;
+  if (state.watcher) state.watcher.destroy();
+  state.watcher = null;
+  $('watchRoot').replaceChildren(h('p', { class: 'muted' }, 'Starting the player…'));
+  try {
+    await streamReady();
+  } catch (err) {
+    state.watchingId = '';
+    $('watchRoot').replaceChildren(h('p', { class: 'error-box' }, err.message));
+    return;
+  }
+  if (state.watchingId !== file.driveId) return;
+  state.watcher = createWatcher({ src: streamUrl(file.driveId, file.size), startSec: Number.isFinite(file.startSec) ? file.startSec : null });
+  $('watchRoot').replaceChildren(state.watcher.el);
+}
+
 function renderAll() {
   const all = views();
   $('connectCard').hidden = isConnected();
@@ -245,6 +286,7 @@ function renderAll() {
   } else if (state.marker) state.marker.setViews(all);
   renderParts();
   renderMake();
+  renderWatch();
 }
 
 // ---------- saving ----------

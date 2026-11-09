@@ -7,6 +7,7 @@ import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, combine, loadGoogle } from './data.js';
 import { downloadFile } from './drive.js';
 import { clipList } from './library.js';
+import { streamReady, streamUrl } from './stream.js';
 
 const state = {
   record: cachedRecord(),
@@ -33,10 +34,18 @@ async function play(clip) {
   $('playerNote').textContent = 'Loading from Drive…';
   $('playerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   try {
-    const blob = await blobFor(clip);
-    if (state.playingUrl) URL.revokeObjectURL(state.playingUrl);
-    state.playingUrl = URL.createObjectURL(blob);
-    $('player').src = state.playingUrl;
+    if (!isConnected()) throw new Error('Connect Google first.');
+    let src;
+    try {
+      await streamReady();
+      src = streamUrl(clip.driveId, clip.size);
+    } catch {
+      const blob = await blobFor(clip);
+      if (state.playingUrl) URL.revokeObjectURL(state.playingUrl);
+      state.playingUrl = URL.createObjectURL(blob);
+      src = state.playingUrl;
+    }
+    $('player').src = src;
     $('playerNote').textContent = '';
     $('player').play().catch(() => {});
   } catch (err) {

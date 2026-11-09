@@ -47,3 +47,22 @@
 .parts-list select { min-height: 36px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); font: 13px var(--font-sans); }
 .part-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .warn-text { color: var(--work); }
+
+/* Watching */
+.watch-stage { position: relative; overflow: hidden; background: #000; border-radius: var(--radius-lg); border: 1px solid var(--line); touch-action: none; outline-offset: 2px; }
+.watch-stage.zoomed { cursor: grab; }
+.watch-stage.zoomed:active { cursor: grabbing; }
+.watch-video { display: block; width: 100%; height: auto; transform-origin: 0 0; max-height: 72vh; }
+.watch-stage:fullscreen { display: flex; align-items: center; border-radius: 0; }
+.watch-stage:fullscreen .watch-video { max-height: none; }
+.watch-overlay { position: absolute; inset: auto 0 0 0; display: flex; gap: 10px; align-items: center; pointer-events: none; }
+.watch-overlay .player-note { position: static; flex: 1; }
+.watch-overlay button { pointer-events: auto; margin-right: 10px; }
+.watch-bar { display: flex; gap: 12px; align-items: center; }
+.watch-seek { flex: 1; accent-color: var(--accent); }
+.watch-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.watch-time { font-variant-numeric: tabular-nums; font-weight: 600; }
+.inline-label { display: inline-flex; gap: 6px; align-items: center; }
+.inline-label select { min-height: 36px; padding: 0 6px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); }
+.inline-label input[type=range] { accent-color: var(--accent); width: 120px; }
+.watch-play { min-width: 76px; }

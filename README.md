@@ -54,6 +54,10 @@ The sign-in pass (it lasts about an hour) is kept only for the browser tab, so m
 
 What the app has stored is listed in `Family Hockey/family-watch-party-record.json` in Drive (which games have files, and each file's original name and size so nothing is imported twice).
 
+### Streaming
+
+`sw.js` is a small service worker that lets the player stream a file from Drive in pieces. It only answers this app's own `drive-stream/<id>` addresses, only fetches from `www.googleapis.com`, and asks the open page for the Google pass when it needs it, keeping it in memory only.
+
 ## Run locally
 
 Any static file server works, for example:
@@ -79,6 +83,8 @@ node --test tests/*.test.mjs
 - [x] Stage 3a: Mark start & end (`join.html`): mark puck drop and the final buzzer, then join a view's parts into one full-game file in Drive (cut at keyframes, no re-processing); the parts go to Drive's trash
 - [x] Clips page (`clips.html`: play, save, share, open in Drive) and Settings page (`settings.html`)
 - [x] Import straight from the PC per game (`join.html`) or in bulk (`import.html`): mark puck drop and the final buzzer (or use whole files) before upload, so each game is stored as one file per camera view
+- [x] Watch games: full games stream from Drive into a player on the game page (zoom and drag around the PANO view)
+- [ ] Clip editor and season highlight reel
 - [ ] Stage 3b: download from LiveBarn straight into Drive, and "Pick rink" for games without a LiveBarn link
 - [ ] Stage 4: game page and player
 - [ ] Stage 5: clip editor, save and share
