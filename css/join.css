@@ -68,7 +68,7 @@
 .watch-play { min-width: 76px; }
 
 /* Clip editor */
-.clip-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
+.clip-editor-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
 .clip-stage { position: relative; background: #000; border-radius: var(--radius-lg); border: 1px solid var(--line); overflow: hidden; display: flex; justify-content: center; }
 .clip-canvas { display: block; width: 100%; height: auto; cursor: grab; touch-action: none; }
 .clip-stage.tall .clip-canvas { width: auto; height: min(70vh, 720px); }
@@ -89,4 +89,4 @@
 .draw-panel { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .clip-result { border-top: 1px solid var(--line); padding-top: 16px; }
 .clip-result-video { width: 100%; max-height: 60vh; background: #000; border-radius: var(--radius-sm); }
-@media (max-width: 900px) { .clip-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .clip-editor-grid { grid-template-columns: 1fr; } }

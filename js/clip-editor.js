@@ -84,7 +84,7 @@ export function createClipEditor({ src, startSec = null, at = 0, game = null, ki
 
   const el = h('div', { class: 'clip-editor stack' },
     h('div', { class: 'section-head' }, h('h2', {}, 'Make a clip'), btn('Close', 'Close the clip editor', close)),
-    h('div', { class: 'clip-grid' },
+    h('div', { class: 'clip-editor-grid' },
       h('div', { class: 'stack' },
         stage,
         h('div', { class: 'watch-bar' }, playBtn, scrub),

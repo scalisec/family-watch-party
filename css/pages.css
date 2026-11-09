@@ -25,3 +25,13 @@
 .release-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .release-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .release-list ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); }
+
+/* Highlight reels */
+.reel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 20px; align-items: start; }
+.reel-label { min-width: 44px; }
+.reel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 52vh; overflow-y: auto; }
+.reel-list > li { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; }
+.reel-list label { display: flex; gap: 10px; align-items: center; cursor: pointer; font-size: 14px; }
+.reel-list input { width: 18px; height: 18px; flex: none; }
+#reelStage.tall .clip-canvas { width: auto; height: min(60vh, 640px); }
+@media (max-width: 900px) { .reel-grid { grid-template-columns: 1fr; } }

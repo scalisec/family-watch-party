@@ -1,8 +1,9 @@
 // The app's version and release history (newest first). Keep VERSION, package.json,
 // version.json and each page's byline in step: the tests check they match.
-export const VERSION = '0.10.0';
+export const VERSION = '0.11.0';
 
 export const RELEASES = [
+  { version: '0.11.0', date: '2026-11-09', notes: ['Highlight reels on the Clips page: tick clips for one kid, joined in game order with a title card per game.', 'Reels save to Drive, and to this PC or share right away.'] },
   { version: '0.10.0', date: '2026-11-09', notes: ['Clip editor on the game page: pick the moment, wide or tall, and drag to keep your kid in frame.', 'Slow motion, and freeze-and-draw with spotlight, arrows, circles and text.', 'Clips save to Drive, and to this PC or share right away.'] },
   { version: '0.9.0', date: '2026-11-09', notes: ['Install the app from Settings.', 'Version history, and a button to check for updates.', 'A note appears on any screen when a new version is ready.'] },
   { version: '0.8.0', date: '2026-11-09', notes: ['Watch full games on the game page, streamed from Drive.', 'Zoom and drag to follow the play in the PANO view; speeds, jumps and full screen.', 'Clips play by streaming too.'] },

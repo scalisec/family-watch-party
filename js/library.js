@@ -55,7 +55,9 @@ export function emptyRecord() {
 
 export function normalizeRecord(rec) {
   if (!rec || typeof rec !== 'object' || typeof rec.games !== 'object' || rec.games === null) return emptyRecord();
-  return { version: 1, updatedAt: rec.updatedAt || null, games: rec.games };
+  const out = { version: 1, updatedAt: rec.updatedAt || null, games: rec.games };
+  if (Array.isArray(rec.reels)) out.reels = rec.reels;
+  return out;
 }
 
 // entry: { driveId, name, kind: 'full'|'clip', view, start, size, original: { name, size, lastModified } }
@@ -172,4 +174,17 @@ export function clipList(record, games) {
   }
   return out.sort((a, b) => ((b.game && b.game.startMs) || 0) - ((a.game && a.game.startMs) || 0)
     || String(b.addedAt || '').localeCompare(String(a.addedAt || '')));
+}
+
+// ---------- highlight reels ----------
+export function reelFolderPath(team) {
+  return [ROOT_FOLDER, safeName(team.kid), safeName(`${team.season} ${team.label}`), 'Highlight reels'];
+}
+
+export function addReel(record, entry, now = new Date().toISOString()) {
+  return { ...record, updatedAt: now, reels: [...(record.reels || []), { ...entry, addedAt: now }] };
+}
+
+export function reelList(record, kid) {
+  return (record.reels || []).filter((r) => !kid || r.kid === kid).sort((a, b) => String(b.addedAt).localeCompare(String(a.addedAt)));
 }

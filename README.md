@@ -90,7 +90,7 @@ node --test tests/*.test.mjs
 - [x] Watch games: full games stream from Drive into a player on the game page (zoom and drag around the PANO view)
 - [x] Install the app, version and release history in Settings, update check (`js/version.js`, `version.json`)
 - [x] Clip editor: wide or tall, follow framing, slow motion, freeze-and-draw (spotlight, arrows, circles, text), save to Drive, save or share
-- [ ] Season highlight reel
+- [x] Season highlight reel: pick a kid's clips, joined in game order with title cards, saved to `Highlight reels` in Drive
 - [ ] Stage 3b: download from LiveBarn straight into Drive, and "Pick rink" for games without a LiveBarn link
 - [ ] Stage 4: game page and player
 - [ ] Stage 5: clip editor, save and share

@@ -21,7 +21,7 @@
       <span class="app-icon" aria-hidden="true">FWP</span>
       <span>
         <span class="app-name">Family Watch Party</span>
-        <span class="byline">BY BENCH BOSS LABS · V0.10.0</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.11.0</span>
       </span>
     </a>
     <nav class="main-nav" aria-label="Main">
@@ -37,12 +37,52 @@
   <main>
     <div class="title-row">
       <h1>Clips</h1>
-      <div id="kidFilter" class="row" role="group" aria-label="Show clips for"></div>
+      <div class="row">
+        <div id="kidFilter" class="row" role="group" aria-label="Show clips for"></div>
+        <button id="reelBtn" class="btn btn-primary" type="button">Make a highlight reel</button>
+      </div>
     </div>
 
     <section id="connectCard" class="card card-accent" aria-labelledby="connect-h" hidden>
       <h2 id="connect-h">Connect Google</h2>
       <p class="muted">Your clips live in your Family Hockey folder in Drive. Press <strong>Connect Google</strong> at the top to see them and play, save or share them.</p>
+    </section>
+
+    <section id="reelCard" class="card card-accent" aria-labelledby="reel-h" hidden>
+      <div class="section-head">
+        <h2 id="reel-h">Make a highlight reel</h2>
+        <button id="reelClose" class="btn btn-small" type="button">Close</button>
+      </div>
+      <div class="reel-grid">
+        <div class="stack">
+          <div class="row"><span class="small muted reel-label">Kid</span><div id="reelKid" class="row" role="group" aria-label="Whose reel"></div></div>
+          <div class="row"><span class="small muted reel-label">Shape</span><div id="reelShape" class="row" role="group" aria-label="Reel shape"></div></div>
+          <label class="check-line"><input id="reelTitles" type="checkbox" checked> <span>A title card before each game (date, opponent and score)</span></label>
+          <label class="stack-tight small muted">Reel title <input id="reelTitle" class="clip-name" type="text" maxlength="60"></label>
+          <div class="row">
+            <button id="reelAll" class="btn btn-small" type="button">Tick all</button>
+            <button id="reelNone" class="btn btn-small" type="button">Untick all</button>
+            <span id="reelSummary" class="small muted"></span>
+          </div>
+          <ul id="reelList" class="reel-list"></ul>
+        </div>
+        <div class="stack">
+          <div class="clip-stage" id="reelStage"><canvas id="reelCanvas" class="clip-canvas" aria-label="Reel picture"></canvas></div>
+          <div class="row">
+            <button id="reelMake" class="btn btn-primary" type="button">Make reel and save to Drive</button>
+            <button id="reelStop" class="btn" type="button" hidden>Stop</button>
+          </div>
+          <div id="reelProgress" class="meter" role="progressbar" aria-label="Making the reel" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="reelFill" class="meter-fill" style="width: 0%"></div></div>
+          <p id="reelStatus" class="small muted" role="status">It records in real time, so a 3-minute reel takes about 3 minutes. Keep this tab in front while it's being made.</p>
+          <div id="reelResult" class="stack" hidden>
+            <video id="reelVideo" controls playsinline class="clip-result-video"></video>
+            <div class="row">
+              <button id="reelSave" class="btn btn-primary" type="button">Save to this PC</button>
+              <button id="reelShare" class="btn" type="button">Share</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="playerCard" class="card" aria-labelledby="player-h" hidden>
@@ -68,6 +108,14 @@
         <p id="emptyText" class="muted"></p>
         <div class="row"><a class="btn" href="import.html">Import downloads</a></div>
       </div>
+    </section>
+
+    <section id="reelsSection" aria-labelledby="reels-h" class="stack" hidden>
+      <div class="section-head">
+        <h2 id="reels-h">Highlight reels</h2>
+        <span id="reelsSummary" class="small muted"></span>
+      </div>
+      <div id="reelsGrid" class="clip-grid"></div>
     </section>
   </main>
 
