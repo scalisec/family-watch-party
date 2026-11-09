@@ -76,6 +76,8 @@ export function normalizeGame(row, team) {
     rink: rinkLabel(row.venue),
     liveBarn: parseLiveBarn(row.liveBarn),
     type: row.type || 'regular',
+    source: 'league',
+    tournament: '',
     status: row.status || 'scheduled',
     result,
     gamesheet: row.gamesheet || null,

@@ -1,4 +1,5 @@
 /* Family Watch Party — Bench Boss Labs design tokens (dark theme default) */
+[hidden] { display: none !important; }
 :root {
   --navy: #07142A;
   --ground: #0B1B31;

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Import downloads · Family Watch Party</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/import.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="lockup" href="index.html">
+      <span class="app-icon" aria-hidden="true">FWP</span>
+      <span>
+        <span class="app-name">Family Watch Party</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.4.0</span>
+      </span>
+    </a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html" aria-current="page">Games</a>
+      <a href="#clips">Clips</a>
+      <a href="#settings">Settings</a>
+    </nav>
+    <div class="row">
+      <button id="googleBtn" class="chip chip-btn chip-action" type="button">Connect Google</button>
+    </div>
+  </header>
+
+  <main>
+    <div>
+      <a href="index.html">‹ Back to games</a>
+      <h1>Import downloads</h1>
+      <p class="muted">Pick game files and clips already on this computer. Each one is matched to its game, uploaded to that game's folder in Google Drive, and the game is marked Downloaded. Your copies stay on this computer.</p>
+    </div>
+
+    <section id="connectCard" class="card card-accent" aria-labelledby="connect-h" hidden>
+      <h2 id="connect-h">Connect Google first</h2>
+      <p class="muted">Press <strong>Connect Google</strong> at the top. Google asks once to let Family Watch Party manage the files it creates in your Drive and read your calendars.</p>
+    </section>
+
+    <section class="card" aria-labelledby="pick-h">
+      <h2 id="pick-h">1 · Pick files</h2>
+      <div id="dropZone" class="drop-zone">
+        <p><strong>Drop video files here</strong>, or</p>
+        <label class="btn btn-primary" for="fileInput">Choose files</label>
+        <input id="fileInput" type="file" accept="video/*,.mp4,.mov,.m4v" multiple hidden>
+        <p class="small muted">LiveBarn files (like <code>Appleby_Ice_Centre_Rink_3_…_2026-11-07T131423.mp4</code>) are matched to their game by date, time and rink. For anything else, pick the game yourself.</p>
+      </div>
+    </section>
+
+    <section id="reviewCard" class="card" aria-labelledby="review-h" hidden>
+      <div class="section-head">
+        <h2 id="review-h">2 · Check the matches</h2>
+        <span id="reviewSummary" class="small muted"></span>
+      </div>
+      <div class="table-box">
+        <table class="imports">
+          <thead>
+            <tr>
+              <th scope="col" class="col-check"><span class="visually-hidden">Include</span></th>
+              <th scope="col">File</th>
+              <th scope="col">Type</th>
+              <th scope="col">Game</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody id="importBody"></tbody>
+        </table>
+      </div>
+      <div class="row upload-row">
+        <button id="uploadBtn" class="btn btn-primary" type="button" disabled>Upload to Drive</button>
+        <button id="stopBtn" class="btn" type="button" hidden>Stop after this file</button>
+        <button id="clearBtn" class="btn" type="button">Clear list</button>
+        <span id="uploadNote" class="small muted"></span>
+      </div>
+      <div id="overall" class="meter" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="overallFill" class="meter-fill meter-good" style="width: 0%"></div></div>
+    </section>
+
+    <section id="doneCard" class="card" aria-labelledby="done-h" hidden>
+      <h2 id="done-h">Done</h2>
+      <p id="doneText"></p>
+      <div class="row">
+        <a class="btn btn-primary" href="index.html">Back to games</a>
+        <a id="driveLink" class="btn" target="_blank" rel="noopener">Open Family Hockey in Drive</a>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/import-page.js"></script>
+</body>
+</html>

@@ -41,6 +41,19 @@ Once it's stable, it can move to the Chrome Web Store as an unlisted extension, 
 
 A **dry run** does steps 1–4 and reports what it would download, using none of your minutes.
 
+## Google access
+
+The app runs entirely in the browser and talks only to Google's own API hosts. It asks for two permissions, once per visit when you press **Connect Google**:
+
+| Permission | Why |
+| --- | --- |
+| `drive.file` | Create the **Family Hockey** folders and upload games and clips. It can only see files this app created, not the rest of your Drive. |
+| `calendar.readonly` | Read the two TeamSnap calendars synced into Google Calendar, to add tournament games the league feeds don't have. It can't change anything. |
+
+The sign-in token is kept in memory only and is gone when the tab closes. While the Google Cloud project is in Testing mode, Google shows an "unverified app" screen (press Continue) and asks again about once a week.
+
+What the app has stored is listed in `Family Hockey/family-watch-party-record.json` in Drive (which games have files, and each file's original name and size so nothing is imported twice).
+
 ## Run locally
 
 Any static file server works, for example:
@@ -61,8 +74,9 @@ node --test tests/*.test.mjs
 
 - [x] Stage 0: app skeleton and the PANO playback check (`pano-check.html`)
 - [x] Stage 1: LiveBarn helper extension (`extension/`, test page `helper-test.html`)
-- [ ] Stage 2: home screen and game list
-- [ ] Stage 3: download to Drive
+- [x] Stage 2: home screen and game list
+- [x] Stage 3: Google sign-in, Family Hockey folders in Drive, importing existing downloads (`import.html`), TeamSnap games via Google Calendar
+- [ ] Stage 3b: download from LiveBarn straight into Drive, and "Pick rink" for games without a LiveBarn link
 - [ ] Stage 4: game page and player
 - [ ] Stage 5: clip editor, save and share
 - [ ] Stage 6: settings and polish

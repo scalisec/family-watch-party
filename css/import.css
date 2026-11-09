@@ -1,0 +1,42 @@
+/* Import downloads */
+.drop-zone {
+  border: 2px dashed var(--line-strong); border-radius: var(--radius-lg); background: var(--surface-2);
+  padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+}
+.drop-zone p { margin: 0; }
+.drop-zone.dragging { border-color: var(--accent); background: var(--accent-soft); }
+.drop-zone code { font-size: 11px; color: var(--on-navy); word-break: break-all; }
+
+table.imports { width: 100%; border-collapse: collapse; min-width: 900px; }
+table.imports th { text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; padding: 10px 8px; }
+table.imports td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: middle; }
+table.imports th:first-child, table.imports td:first-child { padding-left: 16px; }
+table.imports th:last-child, table.imports td:last-child { padding-right: 16px; }
+.file-name { font-weight: 600; word-break: break-all; max-width: 320px; display: block; }
+.imports select {
+  min-height: 40px; width: 100%; padding: 0 8px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); font: 13px var(--font-sans);
+}
+.imports .c-type select { min-width: 120px; }
+.imports .c-game select { min-width: 260px; }
+.row-progress { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-top: 6px; min-width: 120px; }
+.row-progress > div { height: 6px; background: var(--good); }
+.upload-row { margin-top: 4px; }
+tr.skipped td { opacity: .55; }
+
+@media (max-width: 720px) {
+  table.imports { min-width: 0; }
+  table.imports thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.imports tbody, table.imports td { display: block; }
+  table.imports tr {
+    display: grid; gap: 8px 12px; padding: 14px 16px; border-top: 1px solid var(--line);
+    grid-template-columns: 28px minmax(0, 1fr); grid-template-areas: "check file" "check type" "check game" "check status";
+  }
+  table.imports td, table.imports td:first-child, table.imports td:last-child { padding: 0; border: 0; }
+  .imports .c-check { grid-area: check; }
+  .imports .c-file { grid-area: file; }
+  .imports .c-type { grid-area: type; }
+  .imports .c-game { grid-area: game; }
+  .imports .c-status { grid-area: status; }
+  .imports .c-game select { min-width: 0; }
+}

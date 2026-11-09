@@ -1,0 +1,18 @@
+{
+  "lucas": [
+    { "id": "lw1", "summary": "U10 Burlington Bulldogs Blue vs Woodstock Jr. Navy Vets", "description": "Location: Appleby Ice Centre - Rink #3\n   (Arrival Time:  1:15 PM (Eastern Time (US & Canada))) ", "start": { "dateTime": "2026-11-07T13:15:00-05:00" } },
+    { "id": "lp1", "summary": "U10 Burlington Bulldogs Blue - U10 Blue Practice", "description": "Location: Appleby Ice Centre - Rink #2", "start": { "dateTime": "2026-11-06T06:00:07-05:00" } },
+    { "id": "lh1", "summary": "U10 Burlington Bulldogs Blue - HOLD FOR NAZEM KADRI CLASSIC TOURNAMENT", "description": "Location: London", "start": { "dateTime": "2026-11-20T00:00:00-05:00" } },
+    { "id": "lt1", "summary": "U10 Burlington Bulldogs Blue at Oakridge Aeros", "description": "Location: London Sports Park - South\n 2026 Nazem Kadri- North London Classic Tournament -  \n Uniform: White (Arrival Time:  9:15 AM (Eastern Time (US & Canada))) ", "start": { "dateTime": "2026-11-20T10:00:00-05:00" } },
+    { "id": "lt2", "summary": "U10 Burlington Bulldogs Blue vs Canton Wolves", "description": "Location: Western Fair - LMA\n 2026 Nazem Kadri North London Classic Tournament -  \n Uniform: Red (Arrival Time:  4:25 PM (Eastern Time (US & Canada))) ", "start": { "dateTime": "2026-11-20T17:10:00-05:00" } },
+    { "id": "lt3", "summary": "U10 Burlington Bulldogs Blue at Mount Brydges Cougars", "description": "Location: Western Fair - Chick-Fil-A\n  \n Uniform: White (Arrival Time:  9:50 AM (Eastern Time (US & Canada))) ", "start": { "dateTime": "2026-11-21T10:35:00-05:00" } },
+    { "id": "lv1", "summary": "U10 Burlington Bulldogs Blue - TEAM VIDEO REVIEW", "description": "Location: Skyway Arena - Meeting Room #2", "start": { "dateTime": "2026-11-02T17:15:41-05:00" } },
+    { "id": "lallday", "summary": "U10 Burlington Bulldogs Blue vs Somebody", "description": "", "start": { "date": "2026-12-01" } }
+  ],
+  "grace": [
+    { "id": "gh1", "summary": "2026/27 Cudas U13B vs Hamilton Hawks", "description": "Location: Merritton Centennial Arena\n [sync-ms-62570] -   (Arrival Time: 11:15 AM (Eastern Time (US & Canada))) ", "start": { "dateTime": "2026-11-06T12:15:00-05:00" } },
+    { "id": "gb1", "summary": "2026/27 Cudas U13B B Championship vs B Championship - TBD", "description": "Location: Seymour-Hannah Sports & Entertainment Center (Sportsplex 4)\n [sync-ms-62574] -   (Arrival Time: 11:00 AM (Eastern Time (US & Canada))) ", "start": { "dateTime": "2026-11-08T12:00:00-05:00" } },
+    { "id": "gm1", "summary": "2026/27 Cudas U13B - Media Day", "description": "Location: Aura Studio", "start": { "dateTime": "2026-10-23T19:30:00-04:00" } },
+    { "id": "gw1", "summary": "2026/27 Cudas U13B - WickFest", "description": "[sync-md-12402-1]", "start": { "dateTime": "2026-10-09T00:00:00-04:00" } }
+  ]
+}

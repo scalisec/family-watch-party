@@ -1,94 +1,25 @@
-import { DATA_BASE, TEAMS } from './config.js';
-import {
-  normalizeGame, videoStatus, splitGames, summarize, dayLabel, timeLabel,
-} from './games.js';
-import { pingHelper } from './helper-client.js';
+import { TEAMS, DATA_BASE } from './config.js';
+import { videoStatus, splitGames, summarize, dayLabel, timeLabel } from './games.js';
+import { downloadedIds, gameSummary, totals } from './library.js';
+import { $, h, toast, readSaved, save, formatBytes } from './ui.js';
+import { isConnected, wasConnected } from './google.js';
+import { setupHeader } from './header.js';
+import { loadLeague, cachedTeamSnap, cachedRecord, combine, loadGoogle } from './data.js';
+import { shortTournament } from './library.js';
 
-const $ = (id) => document.getElementById(id);
 const RECENT_PAGE = 12;
-
 const state = {
   kid: readSaved('fwp.kid', 'all'),
-  games: [],
-  logos: new Map(),     // "divisionId|team name" -> logo path
-  downloaded: new Set(),
+  league: [],
+  teamsnap: cachedTeamSnap(),
+  record: cachedRecord(),
+  logos: new Map(),
+  storage: null,
   shown: RECENT_PAGE,
+  loaded: false,
 };
 
-function readSaved(key, fallback) {
-  try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
-}
-function save(key, value) {
-  try { localStorage.setItem(key, value); } catch { /* private window: fine */ }
-}
-
-// Small element builder: h('td', { class: 'x' }, child, 'text', …)
-function h(tag, attrs = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v === null || v === undefined || v === false) continue;
-    if (k === 'class') el.className = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? '' : v);
-  }
-  for (const c of children.flat()) {
-    if (c === null || c === undefined || c === false) continue;
-    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
-  }
-  return el;
-}
-
-function toast(text) {
-  const t = $('toast');
-  t.textContent = text;
-  t.hidden = false;
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { t.hidden = true; }, 4000);
-}
-
-// ---------- data ----------
-async function getJson(rel) {
-  const res = await fetch(DATA_BASE + rel, { cache: 'no-cache' });
-  if (!res.ok) throw new Error(`${rel}: ${res.status}`);
-  return res.json();
-}
-
-async function loadLogos() {
-  const [teams, clubs] = await Promise.all([
-    getJson('data/teams.json').catch(() => []),
-    getJson('data/clubs.json').catch(() => []),
-  ]);
-  for (const t of [...teams, ...clubs]) {
-    if (t && t.name && t.logo) state.logos.set(`${t.divisionId}|${t.name}`, t.logo);
-  }
-}
-
-async function load() {
-  const results = await Promise.allSettled(TEAMS.map(async (team) => {
-    const rows = await getJson(team.feed);
-    return rows
-      .filter((r) => r.home === team.feedName || r.away === team.feedName)
-      .map((r) => ({ ...normalizeGame(r, team), divisionId: r.divisionId }));
-  }));
-  const failed = TEAMS.filter((_, i) => results[i].status === 'rejected').map((t) => t.kid);
-  state.games = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
-  await loadLogos();
-
-  let updated = '';
-  try {
-    const meta = await getJson('data/meta.json');
-    const when = new Date(meta.updatedAt);
-    updated = `League schedules and scores · updated ${when.toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`;
-  } catch { updated = 'League schedules and scores'; }
-  $('updated').textContent = updated + (failed.length ? ` · couldn't load ${failed.join(' and ')}'s games` : '');
-  if (state.games.length === 0) showLoadError();
-  render();
-}
-
-function showLoadError() {
-  $('recentBody').replaceChildren(h('tr', {}, h('td', { colspan: 8 },
-    h('div', { class: 'error-box' }, "Couldn't load the league schedules. Check your connection and reload the page."))));
-}
+const games = () => combine(state.league, state.teamsnap);
 
 // ---------- rendering ----------
 function renderKidFilter() {
@@ -106,18 +37,18 @@ const PILL = {
   'no-link': 'pill-work', expired: 'pill-bad', upcoming: 'pill-none',
 };
 
+function soon(what) {
+  toast(`${what} arrives in a later update.`);
+}
+
 function actionFor(game, status) {
   if (status.key === 'ready' || status.key === 'leaves-soon') {
-    return h('button', { type: 'button', class: 'btn btn-primary btn-small', onclick: () => soon('Downloading') }, 'Download');
+    return h('button', { type: 'button', class: 'btn btn-primary btn-small', onclick: () => soon('Downloading from LiveBarn') }, 'Download');
   }
   if (status.key === 'no-link') {
     return h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('Picking the rink') }, 'Pick rink');
   }
   return h('button', { type: 'button', class: 'btn btn-small', onclick: () => soon('The game page') }, 'Open');
-}
-
-function soon(what) {
-  toast(`${what} arrives in a later update. This screen is for checking the list and the look.`);
 }
 
 function initials(name) {
@@ -131,8 +62,24 @@ function logoFor(game) {
   return h('span', { class: 'logo logo-initials', 'aria-hidden': 'true' }, initials(game.opponent));
 }
 
-function gameRow(game, now) {
-  const status = videoStatus(game, now, state.downloaded);
+function gameTag(game) {
+  if (game.tournament) return h('span', { class: 'sub tag' }, shortTournament(game.tournament));
+  if (game.type === 'tournament') return h('span', { class: 'sub tag' }, 'Tournament');
+  if (game.source === 'teamsnap') return h('span', { class: 'sub' }, 'From TeamSnap');
+  return h('span', { class: 'sub' }, game.type === 'regular' ? 'League' : game.type);
+}
+
+function statusDetail(game, status) {
+  if (status.key !== 'downloaded') return status.detail;
+  const s = gameSummary(state.record, game.id);
+  const parts = [`${s.full} file${s.full === 1 ? '' : 's'}`];
+  if (s.views.length) parts.push(s.views.join(' + '));
+  if (s.clips) parts.push(`${s.clips} clip${s.clips === 1 ? '' : 's'}`);
+  return parts.join(' · ');
+}
+
+function gameRow(game, now, downloaded) {
+  const status = videoStatus(game, now, downloaded);
   const selectable = status.key === 'ready' || status.key === 'leaves-soon';
   const result = game.result
     ? h('span', { class: `result result-${game.result.outcome}` }, `${game.result.outcome} ${game.result.us}–${game.result.them}`)
@@ -141,37 +88,65 @@ function gameRow(game, now) {
     h('td', { class: 'col-check c-check' }, h('input', { type: 'checkbox', 'aria-label': `Select ${game.opponentLabel}, ${dayLabel(game.date)}`, disabled: !selectable, 'data-id': game.id })),
     h('td', { class: 'c-when' }, h('span', { class: 'nowrap' }, dayLabel(game.date)), h('span', { class: 'sub' }, timeLabel(game.time))),
     h('td', { class: 'c-kid' }, h('span', { class: `kid-${game.kid.toLowerCase()}` }, game.kid), h('span', { class: 'sub nowrap' }, game.teamLabel)),
-    h('td', { class: 'c-game' }, h('div', { class: 'game-cell' }, logoFor(game),
-      h('div', {}, h('strong', {}, game.opponentLabel),
-        game.type === 'tournament' ? h('span', { class: 'sub tag' }, 'Tournament') : h('span', { class: 'sub' }, game.type === 'regular' ? 'League' : game.type)))),
+    h('td', { class: 'c-game' }, h('div', { class: 'game-cell' }, logoFor(game), h('div', {}, h('strong', {}, game.opponentLabel), gameTag(game)))),
     h('td', { class: 'c-result' }, result),
     h('td', { class: 'c-rink' }, game.rink || h('span', { class: 'muted' }, '—')),
-    h('td', { class: 'c-video' }, h('span', { class: `pill ${PILL[status.key]}` }, status.label), status.detail ? h('span', { class: 'sub' }, status.detail) : null),
+    h('td', { class: 'c-video' }, h('span', { class: `pill ${PILL[status.key]}` }, status.label), h('span', { class: 'sub' }, statusDetail(game, status))),
     h('td', { class: 'c-action' }, actionFor(game, status)),
+  );
+}
+
+function renderDriveCard() {
+  const box = $('driveCard');
+  if (!isConnected()) {
+    const t = totals(state.record);
+    box.replaceChildren(
+      h('h2', { id: 'drive-h', class: 'card-label' }, 'Google Drive'),
+      h('strong', { class: 'stat' }, t.games ? `${t.games} game${t.games === 1 ? '' : 's'} saved` : 'Not connected'),
+      h('span', { class: 'small muted' }, wasConnected() ? 'Press Reconnect Google to see what\'s in Drive and import downloads.' : 'Connect Google to keep games and clips in your Family Hockey folder and import what\'s on this computer.'),
+      h('div', { class: 'row' }, h('a', { class: 'btn', href: 'import.html' }, 'Import downloads')),
+    );
+    return;
+  }
+  const t = totals(state.record);
+  const q = state.storage;
+  const used = q ? Number(q.usage) : NaN;
+  const limit = q ? Number(q.limit) : NaN;
+  const pct = Number.isFinite(used) && Number.isFinite(limit) && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  box.replaceChildren(
+    h('h2', { id: 'drive-h', class: 'card-label' }, 'Google Drive'),
+    h('strong', { class: 'stat' }, Number.isFinite(used) ? `${formatBytes(used)} of ${Number.isFinite(limit) ? formatBytes(limit) : 'unlimited'}` : 'Connected'),
+    h('div', { class: 'meter', role: 'img', 'aria-label': `Drive ${pct}% full` }, h('div', { class: 'meter-fill meter-good', style: `width: ${pct}%` })),
+    h('span', { class: 'small muted' }, `Family Hockey: ${t.games} game${t.games === 1 ? '' : 's'}, ${t.clips} clip${t.clips === 1 ? '' : 's'}, ${formatBytes(t.bytes)}`),
+    h('div', { class: 'row' }, h('a', { class: 'btn', href: 'import.html' }, 'Import downloads')),
   );
 }
 
 function render() {
   const now = Date.now();
+  const all = games();
+  const downloaded = downloadedIds(state.record);
   renderKidFilter();
-  const { recent, upcoming } = splitGames(state.games, state.kid, now);
-  if (state.games.length) {
-    $('recentBody').replaceChildren(...recent.slice(0, state.shown).map((g) => gameRow(g, now)));
+  renderDriveCard();
+  const { recent, upcoming } = splitGames(all, state.kid, now);
+  if (state.loaded) {
+    $('recentBody').replaceChildren(...recent.slice(0, state.shown).map((g) => gameRow(g, now, downloaded)));
   }
   $('showMore').hidden = recent.length <= state.shown;
 
   $('upcoming').replaceChildren(...upcoming.slice(0, 6).map((g) => {
-    const status = videoStatus(g, now, state.downloaded);
+    const status = videoStatus(g, now, downloaded);
     return h('div', { class: 'upcoming-card' }, logoFor(g),
       h('div', {},
         h('span', { class: 'small muted' }, `${dayLabel(g.date)} · ${timeLabel(g.time)} · `, h('span', { class: `kid-${g.kid.toLowerCase()}` }, g.kid)),
         h('strong', {}, g.opponentLabel),
-        h('span', { class: 'small muted' }, [g.rink, g.type === 'tournament' ? 'Tournament' : '', g.liveBarn ? 'on LiveBarn' : 'no LiveBarn link yet'].filter(Boolean).join(' · ')),
+        h('span', { class: 'small muted' }, [g.tournament ? shortTournament(g.tournament) : '', g.rink, g.liveBarn ? 'on LiveBarn' : 'no LiveBarn link yet'].filter(Boolean).join(' · ')),
         status.key === 'today' ? h('span', { class: 'small' }, status.detail) : null));
   }));
-  if (!upcoming.length && state.games.length) $('upcoming').replaceChildren(h('p', { class: 'muted' }, 'No games scheduled yet.'));
+  if (!upcoming.length && state.loaded) $('upcoming').replaceChildren(h('p', { class: 'muted' }, 'No games scheduled yet.'));
 
-  const s = summarize(state.kid === 'all' ? state.games : state.games.filter((g) => g.kid === state.kid), now, state.downloaded);
+  const mine = state.kid === 'all' ? all : all.filter((g) => g.kid === state.kid);
+  const s = summarize(mine, now, downloaded);
   $('readyValue').textContent = s.ready ? `${s.ready} game${s.ready === 1 ? '' : 's'} · about ${s.ready} hour${s.ready === 1 ? '' : 's'}` : 'Nothing waiting';
 
   const needs = [];
@@ -181,19 +156,43 @@ function render() {
   $('needsText').textContent = needs.join(' ');
 }
 
-// ---------- buttons and helper status ----------
+// ---------- loading ----------
+async function refreshGoogle() {
+  $('googleNote').hidden = true;
+  const out = await loadGoogle();
+  if (!out) return;
+  if (out.about) state.storage = out.about.storageQuota;
+  if (out.library) state.record = out.library.record;
+  if (out.teamsnap) state.teamsnap = out.teamsnap;
+  if (out.problems.length) { $('googleNote').textContent = out.problems.join(' '); $('googleNote').hidden = false; }
+  render();
+}
+
+async function start() {
+  setupHeader(refreshGoogle);
+  render();
+  try {
+    const league = await loadLeague();
+    state.league = league.games;
+    state.logos = league.logos;
+    state.loaded = true;
+    const when = league.updatedAt ? new Date(league.updatedAt).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+    const tsNote = state.teamsnap.length ? ' · tournaments from TeamSnap' : ' · connect Google to add tournaments from TeamSnap';
+    $('updated').textContent = `League schedules and scores${when ? ` · updated ${when}` : ''}${tsNote}${league.failed.length ? ` · couldn't load ${league.failed.join(' and ')}'s games` : ''}`;
+    if (!league.games.length) throw new Error('empty');
+    render();
+  } catch {
+    $('recentBody').replaceChildren(h('tr', {}, h('td', { colspan: 8 },
+      h('div', { class: 'error-box' }, "Couldn't load the league schedules. Check your connection and reload the page."))));
+  }
+}
+
 $('showMore').addEventListener('click', () => { state.shown += RECENT_PAGE; render(); });
-$('downloadAll').addEventListener('click', () => soon('Downloading'));
+$('downloadAll').addEventListener('click', () => soon('Downloading from LiveBarn'));
 $('downloadSelected').addEventListener('click', () => {
   const n = document.querySelectorAll('#recentBody input[type="checkbox"]:checked').length;
   if (!n) { toast('Tick the games you want first.'); return; }
-  soon('Downloading');
+  soon('Downloading from LiveBarn');
 });
 
-pingHelper().then((version) => {
-  const chip = $('helperChip');
-  chip.textContent = version ? '● LiveBarn helper connected' : 'LiveBarn helper not installed';
-  chip.className = `chip ${version ? 'chip-good' : 'chip-muted'}`;
-});
-
-load().catch(() => showLoadError());
+start();
