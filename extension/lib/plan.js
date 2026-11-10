@@ -82,6 +82,12 @@
     return `https://watch.livebarn.com/en/video/${encodeURIComponent(surfaceId)}/${date}/${toHHMM(windowStart)}`;
   }
 
+  // Chrome's errors when a page goes away while the helper is talking to it
+  function isChannelClosed(err) {
+    const m = String((err && err.message) || err || '');
+    return /back\/forward cache|message channel (is )?closed|Receiving end does not exist|message port closed/i.test(m);
+  }
+
   // AUTO downloads come from a "_720p" folder; PANO ones from a larger size.
   function isPanoHref(href) {
     try {
@@ -127,7 +133,7 @@
 
   root.FWPPlan = {
     parseClock, parseHHMM, toHHMM, parseClipRow, parseUsage, windowStartFor, gameSpan,
-    clipsToDownload, needsNextWindow, firstWindow, videoUrl, isPanoHref, isLiveBarnMedia,
+    clipsToDownload, needsNextWindow, firstWindow, videoUrl, isPanoHref, isLiveBarnMedia, isChannelClosed,
     safeName, fileNameFor, validateGame,
   };
 })(typeof self !== 'undefined' ? self : globalThis);

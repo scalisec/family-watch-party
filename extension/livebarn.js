@@ -4,6 +4,8 @@
 (function () {
   'use strict';
   const P = self.FWPPlan;
+  // A new ID each time a LiveBarn page loads, so the helper can tell the next window's page from the last one.
+  const PAGE_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   const log = (text) => { try { chrome.runtime.sendMessage({ type: 'log', text }); } catch { /* ignore */ } };
   const ask = (msg) => chrome.runtime.sendMessage(msg);
@@ -159,7 +161,7 @@
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg && msg.type === 'hello') {
-      sendResponse({ ok: true, signedOut: signedOut() });
+      sendResponse({ ok: true, signedOut: signedOut(), pageId: PAGE_ID, href: location.href });
       return false;
     }
     if (msg && msg.type === 'runWindow') {

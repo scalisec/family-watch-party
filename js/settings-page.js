@@ -5,7 +5,7 @@ import { isConnected, accountEmail, disconnect } from './google.js';
 import { setupHeader } from './header.js';
 import { cachedRecord, loadGoogle } from './data.js';
 import { totals } from './library.js';
-import { pingHelper } from './helper-client.js';
+import { pingHelper, helperOutdated, MIN_HELPER, HELPER_UPDATE_STEPS } from './helper-client.js';
 import { VERSION, RELEASES, compareVersions, latestVersion, releaseDate } from './version.js';
 import { platform, canPrompt, onInstallChange, promptInstall } from './install.js';
 
@@ -177,7 +177,7 @@ async function start() {
   });
   pingHelper().then((version) => {
     $('helperStatus').textContent = version
-      ? `Installed in this browser (version ${version}).`
+      ? (helperOutdated(version) ? `Version ${version} is installed but out of date (needs ${MIN_HELPER}). ${HELPER_UPDATE_STEPS}` : `Installed in this browser (version ${version}).`)
       : 'Not found in this browser. It only runs in Chrome on your PC, after loading it in Developer mode.';
   });
   if (isConnected()) await onConnected();

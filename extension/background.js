@@ -45,7 +45,9 @@ function say(text) { post(job && job.port, { type: 'log', text }); }
 // ---------- the job ----------
 async function runJob(port, game, dryRun) {
   job = { port, game, dryRun, taken: [], part: 0, tabId: null, usageStart: null, usageEnd: null, picked: [] };
+  job.started = [];          // start times of files whose download really began (never take them twice)
   let windowStart = P.firstWindow(game);
+  let lastPageId = null;
   say(`Opening LiveBarn at ${P.toHHMM(windowStart)} on ${game.date}${dryRun ? ' (dry run: nothing will be downloaded)' : ''}.`);
 
   const tab = await chrome.tabs.create({ url: P.videoUrl(game.surfaceId, game.date, windowStart), active: true });
@@ -53,11 +55,22 @@ async function runJob(port, game, dryRun) {
 
   try {
     for (let guard = 0; guard < 12; guard += 1) {
-      await waitForPage(job.tabId);
       say(`Checking the ${P.toHHMM(windowStart)} window.`);
-      const result = await chrome.tabs.sendMessage(job.tabId, {
-        type: 'runWindow', game, dryRun, taken: job.taken, firstPart: job.part + 1,
-      });
+      let result = null;
+      for (let attempt = 1; attempt <= 2 && !result; attempt += 1) {
+        lastPageId = await waitForPage(job.tabId, lastPageId);
+        try {
+          result = await chrome.tabs.sendMessage(job.tabId, {
+            type: 'runWindow', game, dryRun, taken: [...job.taken, ...job.started], firstPart: job.part + 1,
+          });
+        } catch (err) {
+          // Chrome closes the channel if the page is swapped out mid-answer (back/forward cache, reload).
+          if (attempt === 2 || !P.isChannelClosed(err)) throw err;
+          say('The LiveBarn page changed while the helper was reading it; trying this window again.');
+          lastPageId = null;
+          await new Promise((res) => setTimeout(res, 1500));
+        }
+      }
       if (!result || !result.ok) {
         post(job.port, { type: 'error', code: (result && result.code) || 'page', message: (result && result.message) || 'The LiveBarn page did not answer.' });
         return;
@@ -89,15 +102,17 @@ async function runJob(port, game, dryRun) {
   }
 }
 
-// Waits until the LiveBarn page script answers, up to 40 seconds.
-async function waitForPage(tabId) {
+// Waits until a LiveBarn page answers, up to 40 seconds, and returns its page ID.
+// With notPageId, keeps waiting until a different (newly loaded) page answers: right after the helper
+// sends the tab to the next window, the old page can still answer for a moment.
+async function waitForPage(tabId, notPageId = null) {
   const until = Date.now() + 40000;
   while (Date.now() < until) {
     try {
       const r = await chrome.tabs.sendMessage(tabId, { type: 'hello' });
-      if (r && r.ok) {
+      if (r && r.ok && (!notPageId || r.pageId !== notPageId)) {
         if (r.signedOut) throw Object.assign(new Error('Sign in to LiveBarn in this Chrome window, then try again.'), { code: 'signin' });
-        return;
+        return r.pageId || null;
       }
     } catch (err) {
       if (err && err.code === 'signin') throw err;
@@ -138,6 +153,7 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   const entry = pending.shift();
   entry.downloadId = item.id;
   active.set(item.id, entry);
+  if (job && job.started) job.started.push(entry.start);
   suggest({ filename: entry.fileName, conflictAction: 'uniquify' });
   entry.started();
   post(entry.port, { type: 'download', state: 'started', part: entry.part, fileName: entry.fileName });

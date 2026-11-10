@@ -1,5 +1,17 @@
 // Talks to the Family Watch Party LiveBarn helper extension.
 export const HELPER_ID = 'ihlieolhaepnpncmgebcejlabomnifmi';
+// The oldest helper version this app works with. Raise it when the extension changes.
+export const MIN_HELPER = '0.1.1';
+
+export function helperOutdated(version) {
+  const a = String(version || '0').split('.').map(Number);
+  const b = MIN_HELPER.split('.').map(Number);
+  for (let i = 0; i < 3; i += 1) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) < (b[i] || 0); }
+  return false;
+}
+
+export const HELPER_UPDATE_STEPS = 'Download the latest files (github.com/scalisec/family-watch-party → Code → Download ZIP), replace the contents of your helper folder with the new extension folder, then press the reload arrow on the helper at chrome://extensions.';
+export const HELPER_INSTALL_STEPS = 'Install it: download github.com/scalisec/family-watch-party (Code → Download ZIP) and unzip it, open chrome://extensions, switch on Developer mode, press Load unpacked and pick the extension folder.';
 
 export function helperAvailable() {
   return typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.connect === 'function';

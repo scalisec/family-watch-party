@@ -1,4 +1,4 @@
-import { connectHelper, pingHelper, helperAvailable } from './helper-client.js';
+import { connectHelper, pingHelper, helperAvailable, helperOutdated, MIN_HELPER, HELPER_UPDATE_STEPS, HELPER_INSTALL_STEPS } from './helper-client.js';
 
 const $ = (id) => document.getElementById(id);
 let port = null;
@@ -27,10 +27,11 @@ function setConn(state, text) {
 async function check() {
   setConn('wait', 'Looking for the helper in this browser.');
   if (!helperAvailable()) {
-    setConn('bad', 'This browser can\'t reach extensions from a page. Use Chrome on your PC with the helper installed.');
+    setConn('bad', `The helper isn't installed in this Chrome profile, or it's switched off. ${HELPER_INSTALL_STEPS}`);
     return;
   }
   const version = await pingHelper();
+  if (version && helperOutdated(version)) { setConn('bad', `Helper ${version} is installed but out of date (this app needs ${MIN_HELPER} or newer). ${HELPER_UPDATE_STEPS}`); return; }
   if (version) setConn('ok', `Helper version ${version} is installed and answering.`);
   else setConn('bad', 'The helper isn\'t answering. Check it is installed and switched on at chrome://extensions, then press Check again.');
 }

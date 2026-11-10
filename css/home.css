@@ -105,3 +105,4 @@ table.games td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-
 
 .c-action { text-align: right; }
 .action-link { display: block; margin-top: 6px; white-space: nowrap; }
+.chip-work { color: var(--work); border-color: var(--work); }
