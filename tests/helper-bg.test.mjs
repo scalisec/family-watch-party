@@ -9,13 +9,25 @@ import vm from 'node:vm';
 const read = (f) => readFileSync(new URL(`../extension/${f}`, import.meta.url), 'utf8');
 const BFCACHE = 'The page keeping the extension port is moved into back/forward cache, so the message channel is closed.';
 
-function harness({ navDelay = 1200, failFirstRunWindow = false } = {}) {
+function harness({ navDelay = 1200, failFirstRunWindow = false, onRunWindow = null } = {}) {
   const logs = [];
   const windowsRun = [];
   let page = null;          // { id, url, ready }
   let pages = 0;
   let failed = false;
   const listeners = { connectExternal: [], message: [], determine: [], changed: [] };
+  const downloads = new Map();   // id -> { id, state, filename }
+  const fromPage = (msg) => new Promise((resolve) => {
+    const keep = listeners.message[0](msg, { tab: { id: 7 } }, resolve);
+    if (keep !== true) setTimeout(() => resolve(undefined), 0);
+  });
+  // LiveBarn's link is clicked: Chrome starts a download and asks the helper for its name
+  const startDownload = (id, { saveAs = false } = {}) => {
+    downloads.set(id, { id, state: 'in_progress', filename: saveAs ? '' : `C:/Downloads/f${id}.mp4` });
+    let named = null;
+    listeners.determine[0]({ id, url: 'https://livebarn-prod-vod-media.s3.amazonaws.com/x.mp4', finalUrl: 'https://livebarn-prod-vod-media.s3.amazonaws.com/x.mp4' }, (s) => { named = s.filename; });
+    return named;
+  };
 
   function loadPage(url) {
     page = { id: `page-${++pages}`, url, ready: false };
@@ -32,7 +44,7 @@ function harness({ navDelay = 1200, failFirstRunWindow = false } = {}) {
     downloads: {
       onDeterminingFilename: { addListener: (f) => listeners.determine.push(f) },
       onChanged: { addListener: (f) => listeners.changed.push(f) },
-      search: async () => [],
+      search: async ({ id }) => (downloads.has(id) ? [downloads.get(id)] : []),
     },
     tabs: {
       create: async ({ url }) => { loadPage(url); return { id: 7 }; },
@@ -49,6 +61,7 @@ function harness({ navDelay = 1200, failFirstRunWindow = false } = {}) {
           if (failFirstRunWindow && !failed) { failed = true; throw new Error(BFCACHE); }
           const time = p.url.split('/').pop();
           windowsRun.push(time);
+          if (onRunWindow) await onRunWindow(time, { fromPage, startDownload, downloads });
           return { ok: true, pano: true, usageBefore: { used: 662, limit: 1800 }, clips: [], picked: [] };
         }
         return null;
@@ -74,7 +87,7 @@ function harness({ navDelay = 1200, failFirstRunWindow = false } = {}) {
       port.send({ type: 'downloadGame', game, dryRun });
     });
   }
-  return { run, logs, windowsRun };
+  return { run, logs, windowsRun, downloads };
 }
 
 const GAME = { kid: 'Lucas', opponent: 'vs Woodstock Jr Navy Vets', surfaceId: '4334', date: '2026-11-07', start: '13:15', durationMin: 60, extraAfterMin: 0 };
@@ -102,4 +115,31 @@ test('the helper knows which errors mean the page went away', () => {
   assert.equal(P.isChannelClosed(new Error(BFCACHE)), true);
   assert.equal(P.isChannelClosed(new Error('Could not establish connection. Receiving end does not exist.')), true);
   assert.equal(P.isChannelClosed(new Error('Sign in to LiveBarn')), false);
+});
+
+test('waits while an earlier file sits on Chrome\'s Save As window, and says so', async () => {
+  let waitedMs = 0;
+  const h = harness({
+    navDelay: 300,
+    onRunWindow: async (time, api) => {
+      if (time === '13:00') {
+        await api.fromPage({ type: 'expectDownload', fileName: 'FamilyWatchParty/Lucas/x/x part 1 (1314).mp4', start: 794, part: 1 });
+        assert.equal((await api.fromPage({ type: 'waitClear' })).ok, true, 'nothing waiting yet');
+        const name = api.startDownload(1, { saveAs: true });
+        assert.match(name, /part 1 \(1314\)\.mp4$/, 'still named by the helper');
+        assert.equal((await api.fromPage({ type: 'waitStarted', start: 794 })).ok, true);
+        // the person presses Save 2.5 seconds later
+        setTimeout(() => { api.downloads.get(1).filename = 'C:/Downloads/FamilyWatchParty/x part 1 (1314).mp4'; }, 2500);
+      }
+      if (time === '13:30') {
+        const t0 = Date.now();
+        assert.equal((await api.fromPage({ type: 'waitClear' })).ok, true);
+        waitedMs = Date.now() - t0;
+      }
+    },
+  });
+  const end = await h.run(GAME, false);
+  assert.equal(end.type, 'done', JSON.stringify(end));
+  assert.ok(waitedMs > 500, `the 13:30 click waited for the Save As window (${waitedMs} ms)`);
+  assert.ok(h.logs.some((m) => m.type === 'log' && /asking where to save part 1/.test(m.text)), 'explains the Save As window');
 });

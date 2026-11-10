@@ -138,15 +138,45 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!entry) { sendResponse({ ok: false }); return false; }
     if (entry.downloadId !== undefined) { sendResponse({ ok: true }); return false; }
     const timer = setTimeout(() => {
-      const i = pending.indexOf(entry);
-      if (i >= 0) pending.splice(i, 1);
+      // Keep expecting it for a few minutes: if Chrome starts it late, it still gets the right name.
+      entry.late = true;
+      setTimeout(() => { const i = pending.indexOf(entry); if (i >= 0 && entry.downloadId === undefined) pending.splice(i, 1); }, 180000);
       sendResponse({ ok: false });
-    }, 20000);
+    }, 45000);
     entry.startedPromise.then(() => { clearTimeout(timer); sendResponse({ ok: true }); });
     return true; // answer later
   }
+  if (msg.type === 'waitClear') {
+    waitUntilNoSaveAs().then((ok) => sendResponse({ ok }));
+    return true;
+  }
   return false;
 });
+
+// A download whose file name is still empty is waiting on Chrome's "Save As" window.
+async function savingAs() {
+  const out = [];
+  for (const [id, entry] of active) {
+    const [item] = await chrome.downloads.search({ id });
+    if (item && item.state === 'in_progress' && !item.filename) out.push(entry);
+  }
+  return out;
+}
+
+// Before the next file is clicked: wait (up to 2.5 minutes) while an earlier one sits on a Save As window.
+async function waitUntilNoSaveAs() {
+  const until = Date.now() + 150000;
+  let told = false;
+  while (Date.now() < until) {
+    const waiting = await savingAs();
+    if (!waiting.length) return true;
+    if (!told) { say(SAVE_AS_HELP(waiting[0].part)); told = true; }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+const SAVE_AS_HELP = (part) => `Chrome is asking where to save part ${part}: press Save in that window (the name and folder are already filled in). To stop these windows, switch off "Ask where to save each file before downloading" at chrome://settings/downloads.`;
 
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   if (!P.isLiveBarnMedia(item.finalUrl || item.url) || pending.length === 0) return;
@@ -157,6 +187,12 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   suggest({ filename: entry.fileName, conflictAction: 'uniquify' });
   entry.started();
   post(entry.port, { type: 'download', state: 'started', part: entry.part, fileName: entry.fileName });
+  if (entry.late) post(entry.port, { type: 'log', text: `Part ${entry.part} started late, after the helper had stopped; it's still saved with the right name.` });
+  // Tell the person if Chrome is holding it on a Save As window
+  setTimeout(async () => {
+    const [it] = await chrome.downloads.search({ id: item.id });
+    if (it && it.state === 'in_progress' && !it.filename) post(entry.port, { type: 'log', text: SAVE_AS_HELP(entry.part) });
+  }, 3000);
 });
 
 chrome.downloads.onChanged.addListener((delta) => {

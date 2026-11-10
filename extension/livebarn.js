@@ -139,13 +139,18 @@
     let part = firstPart;
     for (const clip of picked) {
       const fileName = P.fileNameFor(game, clip, part);
+      const clear = await ask({ type: 'waitClear' });
+      if (!clear || !clear.ok) {
+        await closeList();
+        return { ok: false, code: 'saveas', message: 'An earlier file is still waiting on Chrome\'s Save As window, so the helper stopped before clicking the next one. Press Save there, switch off "Ask where to save each file" at chrome://settings/downloads, then download the rest.', picked: done };
+      }
       await ask({ type: 'expectDownload', fileName, start: clip.start, part });
       log(`Downloading ${clip.label} (${clip.minutes} min).`);
       realClick(clip.link);
       const started = await ask({ type: 'waitStarted', start: clip.start });
       if (!started || !started.ok) {
         await closeList();
-        return { ok: false, code: 'nostart', message: `The download for ${clip.label} didn't start. Stopped here so nothing is charged twice; check LiveBarn's download usage before trying again.`, picked: done };
+        return { ok: false, code: 'nostart', message: `The download for ${clip.label} didn't start. Stopped here so nothing is charged twice; check LiveBarn's download usage before trying again. If Chrome asks where to save files, switch that off at chrome://settings/downloads.`, picked: done };
       }
       const { link, ...plain } = clip;
       done.push(plain);
