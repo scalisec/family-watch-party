@@ -34,7 +34,7 @@
       <span class="app-icon" aria-hidden="true">FWP</span>
       <span>
         <span class="app-name">Family Watch Party</span>
-        <span class="byline">BY BENCH BOSS LABS · V0.12.2</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.13.0</span>
       </span>
     </a>
     <nav class="main-nav" aria-label="Main">
@@ -58,10 +58,16 @@
       </div>
       <span id="connText" class="muted">Looking for the helper in this browser.</span>
       <div class="row"><button id="recheck" class="btn" type="button">Check again</button></div>
+      <div class="row" style="justify-content: space-between; border-top: 1px solid var(--line); padding-top: 12px">
+        <span><strong>Google Drive for the helper</strong><br><span id="googleText" class="small muted">Checking…</span></span>
+        <button id="connectGoogle" class="btn" type="button" hidden>Connect the helper to Google</button>
+      </div>
     </section>
 
     <section class="card" aria-labelledby="game-h">
       <h2 id="game-h">Game</h2>
+      <div class="field"><label for="gamePick">Pick a played game</label>
+        <select id="gamePick"><option value="">Loading the games…</option></select></div>
       <div class="form-grid">
         <div class="field"><label for="kid">Kid</label>
           <select id="kid"><option>Lucas</option><option>Grace</option></select></div>
@@ -73,9 +79,11 @@
         <div class="field"><label for="extraAfterMin">Extra time after</label>
           <select id="extraAfterMin"><option value="0">None (fewest minutes)</option><option value="30">30 minutes for late starts</option></select></div>
       </div>
-      <span class="small muted">Prefilled with Lucas's Nov 7 game at Appleby Rink 3. Remember Clip 2 of the 1:00 window was already downloaded in both views during the test.</span>
+      <span class="small muted">Picking a game fills these in. To download only part of a game, change the start time and length (for example 1:30 PM and 45 minutes for the second half of a 1:15 game).</span>
+      <label class="check"><input id="toDrive" type="checkbox" checked>
+        <span><strong>Save straight to Google Drive</strong><br><span class="small muted">The files go into the game's folder in Drive as parts, ready to mark and save. No Save As windows, nothing in Downloads. Needs a game picked above and the helper connected to Google.</span></span></label>
       <label class="check"><input id="dryRun" type="checkbox" checked>
-        <span><strong>Dry run</strong><br><span class="small muted">Untick only when you want real downloads. Each file uses its length from your monthly minutes. Before a real download, switch off <strong>Ask where to save each file before downloading</strong> at chrome://settings/downloads, or Chrome stops on every file.</span></span></label>
+        <span><strong>Dry run</strong><br><span class="small muted">Untick only when you want real downloads. Each file uses its length from your monthly minutes. When not saving to Drive, Chrome's <strong>Ask where to save each file</strong> setting shows a Save As window for each file.</span></span></label>
       <div class="row">
         <button id="run" class="btn btn-primary" type="button" disabled>Run dry run</button>
       </div>

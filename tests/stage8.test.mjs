@@ -74,3 +74,25 @@ test('rink suggestions need a shared arena name, not just a rink number', () => 
   assert.deepEqual(suggest(dir, 'Seymour-Hannah Sports & Entertainment Center (Sportsplex 4)'), []);
   assert.deepEqual(suggest(dir, 'Appleby Ice Centre (3)').map((d) => d.surfaceId), ['4334', '4333'], 'same arena, matching rink number first');
 });
+
+test('the app takes in the helper\'s notes once, and pre-marks from the schedule', async () => {
+  const { mergeHelperNotes, scheduleMarks, emptyRecord, partsByView } = await import('../js/library.js');
+  const notes = [
+    { type: 'part', gameId: 'g1', driveId: 'D2', name: 'p2.mp4', view: 'PANO', start: 810, startSec: 48602, size: 2 },
+    { type: 'part', gameId: 'g1', driveId: 'D1', name: 'p1.mp4', view: 'PANO', start: 794, startSec: 47663, size: 1 },
+    { type: 'other', gameId: 'g1', driveId: 'X' },
+  ];
+  let { record, added } = mergeHelperNotes(emptyRecord(), notes, 'T');
+  assert.equal(added, 2);
+  ({ record, added } = mergeHelperNotes(record, notes, 'T2'));
+  assert.equal(added, 0, 'never added twice');
+  const parts = partsByView(record, 'g1').PANO.map((e) => ({ id: e.driveId, clock: e.startSec, duration: 900 }));
+  assert.deepEqual(parts.map((p) => p.id), ['D1', 'D2']);
+  const m = scheduleMarks([{ ...parts[0], duration: 937 }, { ...parts[1], duration: 1800 }], { time: '13:15' });
+  assert.deepEqual(m.start, { id: 'D1', sec: 13 * 3600 + 15 * 60 - 47663 });
+  assert.deepEqual(m.end, { id: 'D2', sec: 1800 }, 'an hour after puck drop is past the last part, so the buzzer stops at its end');
+  const longer = scheduleMarks([{ ...parts[0], duration: 937 }, { ...parts[1], duration: 3600 }], { time: '13:15' });
+  assert.deepEqual(longer.end, { id: 'D2', sec: 14 * 3600 + 15 * 60 - 48602 });
+  assert.equal(m.fromSchedule, true);
+  assert.equal(scheduleMarks([{ id: 'a', clock: null }], { time: '13:15' }), null, 'no start times, no guess');
+});

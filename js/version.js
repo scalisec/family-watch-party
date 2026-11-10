@@ -1,8 +1,9 @@
 // The app's version and release history (newest first). Keep VERSION, package.json,
 // version.json and each page's byline in step: the tests check they match.
-export const VERSION = '0.12.2';
+export const VERSION = '0.13.0';
 
 export const RELEASES = [
+  { version: '0.13.0', date: '2026-11-10', notes: ['LiveBarn helper 0.2.0: downloads can go straight into Google Drive, so there are no Save As windows and nothing in Downloads.', 'Connect the helper to Google once on the Helper test page; pick the game from a list.', 'Parts the helper saves show up on the game, pre-marked from the schedule; joining reads them from Drive without downloading first.'] },
   { version: '0.12.2', date: '2026-11-10', notes: ['LiveBarn helper 0.1.2: waits while a file sits on Chrome\'s Save As window instead of giving up, and says what to do.', 'A file Chrome starts late still gets the right name.', 'Helper test reminds you to switch off Chrome\'s "Ask where to save each file".'] },
   { version: '0.12.1', date: '2026-11-09', notes: ['LiveBarn helper 0.1.1: waits for each 30-minute window to load before reading it (fixes the dry run stopping at the second window).', 'The app tells you when the helper is missing or out of date, and how to fix it.'] },
   { version: '0.12.0', date: '2026-11-09', notes: ['Pick rink: choose the LiveBarn rink for games the schedule has no link for, and use it for the other games at that rink.', 'Open in LiveBarn on games and the game page jumps straight to the game\'s time.'] },

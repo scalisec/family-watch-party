@@ -82,6 +82,30 @@
     return `https://watch.livebarn.com/en/video/${encodeURIComponent(surfaceId)}/${date}/${toHHMM(windowStart)}`;
   }
 
+  // ---------- straight to Drive ----------
+  function validateDrive(drive) {
+    const problems = [];
+    if (!drive || typeof drive !== 'object') return ['No Drive details were sent.'];
+    if (!drive.gameId || typeof drive.gameId !== 'string') problems.push('The game is missing.');
+    if (!Array.isArray(drive.folderPath) || !drive.folderPath.length || drive.folderPath[0] !== 'Family Hockey'
+      || drive.folderPath.some((n) => typeof n !== 'string' || !n || n.length > 120)) problems.push('The Drive folder is not a Family Hockey folder.');
+    if (!['PANO', 'AUTO'].includes(drive.view)) problems.push('The camera view should be PANO or AUTO.');
+    return problems;
+  }
+  // "FamilyWatchParty/Lucas/2026-11-07 vs X/2026-11-07 vs X part 1 (1314).mp4" -> "2026-11-07 vs X part 1 (1314) PANO.mp4"
+  function driveNameFor(fileName, view) {
+    const base = String(fileName).split('/').pop().replace(/\.mp4$/i, '');
+    return `${base}${view ? ` ${view}` : ''}.mp4`;
+  }
+  // LiveBarn's own file name from its download link, e.g. "Appleby_Ice_Centre_2026-11-07T131423.mp4"
+  function liveBarnFileName(url) {
+    try { const n = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); return /\.mp4$/i.test(n) ? n : null; } catch { return null; }
+  }
+  function startSecFromName(name) {
+    const m = /T(\d{2})(\d{2})(\d{2})\.mp4$/i.exec(String(name || ''));
+    return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
+  }
+
   // Chrome's errors when a page goes away while the helper is talking to it
   function isChannelClosed(err) {
     const m = String((err && err.message) || err || '');
@@ -133,7 +157,7 @@
 
   root.FWPPlan = {
     parseClock, parseHHMM, toHHMM, parseClipRow, parseUsage, windowStartFor, gameSpan,
-    clipsToDownload, needsNextWindow, firstWindow, videoUrl, isPanoHref, isLiveBarnMedia, isChannelClosed,
+    clipsToDownload, needsNextWindow, firstWindow, videoUrl, isPanoHref, isLiveBarnMedia, isChannelClosed, validateDrive, driveNameFor, liveBarnFileName, startSecFromName,
     safeName, fileNameFor, validateGame,
   };
 })(typeof self !== 'undefined' ? self : globalThis);

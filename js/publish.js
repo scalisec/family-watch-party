@@ -9,9 +9,9 @@ export async function prepareJoin(parts, cut, getBlob, onStatus = () => {}) {
   const used = parts.slice(cut.first, cut.last + 1);
   const loaded = [];
   for (let i = 0; i < used.length; i += 1) {
-    const blob = await getBlob(used[i], (got, size) => onStatus(`loading part ${cut.first + i + 1} from Drive`, got, size));
+    const source = await getBlob(used[i], (got, size) => onStatus(`loading part ${cut.first + i + 1} from Drive`, got, size));
     onStatus(`reading part ${cut.first + i + 1}`);
-    const reader = blobReader(blob);
+    const reader = source && typeof source.read === 'function' ? source : blobReader(source);
     loaded.push({ reader, info: await readMp4(reader) });
   }
   const joined = buildJoin(loaded, { startPart: 0, startSec: cut.startSec, endPart: loaded.length - 1, endSec: cut.endSec });

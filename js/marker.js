@@ -64,7 +64,7 @@ export function cutFor(views, marks, view, whole) {
 // Set a mark and fill the other views in as an estimate from the clock time
 export function applyMark(views, marks, view, which, mark) {
   const out = { ...marks };
-  out[view] = { ...(out[view] || {}), [which]: mark, estimated: false };
+  out[view] = { ...(out[view] || {}), [which]: mark, estimated: false, fromSchedule: false };
   const clock = markClock(views, view, mark);
   if (clock == null) return out;
   for (const v of Object.keys(views)) {
@@ -86,7 +86,7 @@ export function applyMark(views, marks, view, which, mark) {
  * @param {(part, onProgress) => Promise<Blob>} o.getBlob
  * @param {(marks) => void} o.onChange
  */
-export function createMarker({ views, marks = {}, game = null, getBlob, onChange = () => {} }) {
+export function createMarker({ views, marks = {}, game = null, getBlob, getUrl = null, onChange = () => {} }) {
   let state = { views, marks: { ...marks }, view: '', part: 0 };
   const urls = new Map();
 
@@ -144,11 +144,12 @@ export function createMarker({ views, marks = {}, game = null, getBlob, onChange
     if (!url) {
       note.textContent = 'Opening…';
       try {
-        const blob = await getBlob(p, (got, size) => {
+        const streamed = getUrl ? await getUrl(p) : null;
+        if (streamed) { url = streamed; urls.set(p.id, url); }
+        const blob = streamed ? null : await getBlob(p, (got, size) => {
           if (state.part === index) note.textContent = `Loading part ${index + 1} from Drive: ${formatBytes(got)} of ${formatBytes(size || p.size)}`;
         });
-        url = URL.createObjectURL(blob);
-        urls.set(p.id, url);
+        if (blob) { url = URL.createObjectURL(blob); urls.set(p.id, url); }
       } catch (err) {
         note.textContent = err.message;
         return;
@@ -208,7 +209,8 @@ export function createMarker({ views, marks = {}, game = null, getBlob, onChange
     goEnd.hidden = !m.end;
     const other = Object.keys(state.views).find((v) => v !== state.view);
     let text = '';
-    if (m.estimated) text = `These were estimated from the ${other} marks, but the two cameras' clocks can differ a little. Check them with "Go to it" and set them again if they're off.`;
+    if (m.fromSchedule) text = 'Set from the schedule: puck drop at the scheduled time and the final buzzer an hour later. Check them with "Go to it" and set them again if the game started late.';
+    else if (m.estimated) text = `These were estimated from the ${other} marks, but the two cameras' clocks can differ a little. Check them with "Go to it" and set them again if they're off.`;
     else if (m.start && m.end && !marksValid(state.views, state.marks, state.view)) text = 'The final buzzer is before puck drop. Set them again.';
     markNote.textContent = text;
     markNote.hidden = !text;
@@ -262,6 +264,6 @@ export function createMarker({ views, marks = {}, game = null, getBlob, onChange
       renderAll();
     },
     setMarks(next) { state.marks = { ...next }; renderMarks(); },
-    destroy() { resetPlayer(); for (const u of urls.values()) URL.revokeObjectURL(u); urls.clear(); el.remove(); },
+    destroy() { resetPlayer(); for (const u of urls.values()) if (u.startsWith('blob:')) URL.revokeObjectURL(u); urls.clear(); el.remove(); },
   };
 }

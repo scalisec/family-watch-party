@@ -189,3 +189,39 @@ export function addReel(record, entry, now = new Date().toISOString()) {
 export function reelList(record, kid) {
   return (record.reels || []).filter((r) => !kid || r.kid === kid).sort((a, b) => String(b.addedAt).localeCompare(String(a.addedAt)));
 }
+
+// ---------- the helper's inbox ----------
+// The LiveBarn helper leaves one small note per file it saved to Drive in this folder; the app adds
+// them to the record and then deletes the notes.
+export const INBOX = [ROOT_FOLDER, 'Helper inbox'];
+
+export function mergeHelperNotes(record, notes, now = new Date().toISOString()) {
+  let out = record;
+  const known = new Set(Object.values(record.games).flatMap((g) => g.files.map((f) => f.driveId)));
+  let added = 0;
+  for (const n of notes) {
+    if (!n || n.type !== 'part' || !n.gameId || !n.driveId || known.has(n.driveId)) continue;
+    out = addFile(out, n.gameId, {
+      driveId: n.driveId, name: n.name, kind: 'full', view: n.view || 'PANO',
+      start: Number.isFinite(n.start) ? n.start : null, startSec: Number.isFinite(n.startSec) ? n.startSec : (Number.isFinite(n.start) ? n.start * 60 : null),
+      size: n.size || null, duration: n.duration || null, fromHelper: true,
+      original: n.original || null,
+    }, now);
+    known.add(n.driveId);
+    added += 1;
+  }
+  return { record: out, added };
+}
+
+// Marks from the schedule: puck drop at the scheduled time, final buzzer an hour later.
+export function scheduleMarks(parts, game, lengthMin = 60) {
+  const t = parseHHMMSafe(game && game.time);
+  if (!Number.isFinite(t) || !parts.length || parts.some((p) => p.clock == null)) return null;
+  const at = (clock) => {
+    let best = parts[0];
+    for (const p of parts) if (p.clock <= clock) best = p;
+    const end = best.clock + (best.duration || 1800);
+    return { id: best.id, sec: Math.max(0, Math.min(clock, end) - best.clock) };
+  };
+  return { start: at(t * 60), end: at(t * 60 + lengthMin * 60), estimated: false, fromSchedule: true };
+}

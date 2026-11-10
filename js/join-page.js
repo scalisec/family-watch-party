@@ -2,13 +2,13 @@
 // the final buzzer, and save one full-game file per camera view to Drive. Clips go up as they are.
 import { TEAMS } from './config.js';
 import { dayLabel, timeLabel } from './games.js';
-import { partsByView, joinedFile, setMarks, clockSec, alreadyImported, folderPath } from './library.js';
+import { partsByView, joinedFile, setMarks, clockSec, alreadyImported, folderPath, scheduleMarks } from './library.js';
 import { parseVideoFileName, viewFromSize, kindFor } from './import-match.js';
 import { $, h, toast, formatBytes, formatDuration, driveFolderLink, readMeta } from './ui.js';
 import { isConnected, NotConnectedError } from './google.js';
 import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, cacheRecord, combine, loadGoogle } from './data.js';
-import { saveLibrary, downloadFile, ensureFolder } from './drive.js';
+import { saveLibrary, downloadFile, ensureFolder, driveReader } from './drive.js';
 import { Mp4Error } from './mp4.js';
 import { createMarker, marksValid, lengthOf, markClock, clockText, cutFor } from './marker.js';
 import { prepareJoin, publishJoined, publishClip } from './publish.js';
@@ -67,6 +67,20 @@ function views() {
   return out;
 }
 const localClips = () => state.local.filter((f) => f.kind === 'clip');
+
+// For joining: parts on this PC are read from here; parts in Drive are read from Drive in pieces.
+async function getSource(part, onProgress) {
+  if (part.file) return part.file;
+  if (state.blobs.has(part.driveId)) return state.blobs.get(part.driveId);
+  if (!isConnected()) throw new NotConnectedError('Connect Google to read this part from Drive, or pick the file on this PC.');
+  return driveReader(part.driveId, part.size);
+}
+
+// For watching while marking: parts in Drive are streamed, so they start in seconds.
+async function getUrl(part) {
+  if (part.file || state.blobs.has(part.driveId) || !isConnected()) return null;
+  try { await streamReady(); return streamUrl(part.driveId, part.size); } catch { return null; }
+}
 
 async function getBlob(part, onProgress) {
   if (part.file) return part.file;
@@ -343,7 +357,7 @@ function renderAll() {
   $('markCard').hidden = !hasParts || state.whole;
   $('make-h').textContent = `${$('markCard').hidden ? 2 : 3} · Save to Drive`;
   if (hasParts && !state.marker) {
-    state.marker = createMarker({ views: all, marks: state.marks, game: state.game, getBlob, onChange: saveMarks });
+    state.marker = createMarker({ views: all, marks: state.marks, game: state.game, getBlob, getUrl, onChange: saveMarks });
     $('markerRoot').replaceChildren(state.marker.el);
   } else if (state.marker) state.marker.setViews(all);
   renderParts();
@@ -385,7 +399,7 @@ async function save() {
     for (const view of chosen) {
       const all = views();
       const parts = all[view];
-      const { joined, used } = await prepareJoin(parts, cutFor(all, state.marks, view, state.whole), getBlob, (what, got, size) => {
+      const { joined, used } = await prepareJoin(parts, cutFor(all, state.marks, view, state.whole), getSource, (what, got, size) => {
         setProgress(0, `${view}: ${what}${got ? ` (${formatBytes(got)} of ${formatBytes(size)})` : ''}…`);
       });
       if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
@@ -438,6 +452,13 @@ async function save() {
 function loadMarks() {
   const saved = (state.record.games[gameId] && state.record.games[gameId].marks) || {};
   for (const v of Object.keys(saved)) if (!state.marks[v]) state.marks[v] = saved[v];
+  // No marks yet: start from the schedule (puck drop at the scheduled time, final buzzer an hour later)
+  const all = views();
+  for (const v of Object.keys(all)) {
+    if (state.marks[v]) continue;
+    const m = scheduleMarks(all[v], state.game);
+    if (m) state.marks[v] = m;
+  }
   if (state.marker) state.marker.setMarks(state.marks);
 }
 

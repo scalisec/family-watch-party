@@ -1,11 +1,60 @@
 // Family Watch Party helper — background worker.
 // Takes one "download this game" request at a time from the Family Watch Party site,
-// drives the LiveBarn page script window by window, and names the downloads it starts.
+// drives the LiveBarn page script window by window, and either names the downloads it starts or
+// (when the app asks) moves each file straight into Google Drive instead of the Downloads folder.
 importScripts('lib/plan.js');
 const P = self.FWPPlan;
 
 const APP_ORIGIN = 'https://scalisec.github.io';
 const VERSION = chrome.runtime.getManifest().version;
+
+// ---------- Google (only Drive files this app created: drive.file) ----------
+const CLIENT_ID = '1061398617166-8t015jus9o3vb95n6r46t01v46jnetkk.apps.googleusercontent.com';
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let google = { token: null, expiresAt: 0 };
+
+// Gets a Google pass for the helper. interactive=false never shows a window (used in the background);
+// it works once you've connected the helper and are signed in to Google in this Chrome.
+async function googleToken(interactive = false) {
+  if (google.token && Date.now() < google.expiresAt - 60000) return google.token;
+  try {
+    const saved = await chrome.storage.session.get('google');
+    if (saved.google && Date.now() < saved.google.expiresAt - 60000) { google = saved.google; return google.token; }
+  } catch { /* fine */ }
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.search = new URLSearchParams({
+    client_id: CLIENT_ID, response_type: 'token', redirect_uri: chrome.identity.getRedirectURL(), scope: SCOPE,
+    include_granted_scopes: 'true', ...(interactive ? {} : { prompt: 'none' }),
+  }).toString();
+  let final;
+  try {
+    final = await chrome.identity.launchWebAuthFlow({ url: url.href, interactive });
+  } catch (err) {
+    if (!interactive) return null;
+    throw new Error(`Google sign-in didn't finish: ${err.message}`);
+  }
+  const params = new URLSearchParams(new URL(final).hash.slice(1));
+  if (!params.get('access_token')) {
+    if (!interactive) return null;
+    throw new Error(`Google said: ${params.get('error') || 'no pass was given'}.`);
+  }
+  google = { token: params.get('access_token'), expiresAt: Date.now() + Number(params.get('expires_in') || 3600) * 1000 };
+  try { await chrome.storage.session.set({ google }); await chrome.storage.local.set({ googleConnected: true }); } catch { /* fine */ }
+  return google.token;
+}
+
+async function googleStatus() {
+  const token = await googleToken(false);
+  let everConnected = false;
+  try { everConnected = Boolean((await chrome.storage.local.get('googleConnected')).googleConnected); } catch { /* fine */ }
+  return { type: 'google', connected: Boolean(token), everConnected };
+}
+
+// ---------- the invisible page that moves files into Drive ----------
+async function ensureOffscreen() {
+  if (await chrome.offscreen.hasDocument()) return;
+  await chrome.offscreen.createDocument({ url: 'offscreen.html', reasons: ['BLOBS'], justification: 'Moves LiveBarn downloads into Google Drive.' });
+}
 
 let job = null;            // the running job, or null
 const pending = [];        // downloads we expect LiveBarn to start, in order
@@ -22,11 +71,23 @@ chrome.runtime.onConnectExternal.addListener((port) => {
       post(port, { type: 'pong', version: VERSION, busy: Boolean(job) });
       return;
     }
+    if (msg.type === 'googleStatus') { post(port, await googleStatus()); return; }
+    if (msg.type === 'connectGoogle') {
+      try { await googleToken(true); } catch (err) { post(port, { type: 'error', code: 'google', message: err.message }); }
+      post(port, await googleStatus());
+      return;
+    }
     if (msg.type === 'downloadGame') {
       if (job) { post(port, { type: 'error', code: 'busy', message: 'Another game is downloading. Wait for it to finish.' }); return; }
       const problems = P.validateGame(msg.game);
       if (problems.length) { post(port, { type: 'error', code: 'invalid', message: problems.join(' ') }); return; }
-      runJob(port, msg.game, Boolean(msg.dryRun)).catch((err) => {
+      if (msg.drive && !msg.dryRun) {
+        const bad = P.validateDrive(msg.drive);
+        if (bad.length) { post(port, { type: 'error', code: 'invalid', message: bad.join(' ') }); return; }
+        if (!(await googleToken(false))) { post(port, { type: 'error', code: 'google', message: 'Connect the helper to Google first (Helper test → Connect the helper to Google).' }); return; }
+        await ensureOffscreen();
+      }
+      runJob(port, msg.game, Boolean(msg.dryRun), msg.dryRun ? null : msg.drive || null).catch((err) => {
         post(port, { type: 'error', code: 'unexpected', message: String(err && err.message || err) });
       }).finally(() => { job = null; });
     }
@@ -43,8 +104,8 @@ function post(port, msg) {
 function say(text) { post(job && job.port, { type: 'log', text }); }
 
 // ---------- the job ----------
-async function runJob(port, game, dryRun) {
-  job = { port, game, dryRun, taken: [], part: 0, tabId: null, usageStart: null, usageEnd: null, picked: [] };
+async function runJob(port, game, dryRun, drive = null) {
+  job = { port, game, dryRun, drive, taken: [], part: 0, tabId: null, usageStart: null, usageEnd: null, picked: [] };
   job.started = [];          // start times of files whose download really began (never take them twice)
   let windowStart = P.firstWindow(game);
   let lastPageId = null;
@@ -95,7 +156,9 @@ async function runJob(port, game, dryRun) {
       usageStart: job.usageStart, usageEnd: job.usageEnd,
       message: dryRun
         ? `Dry run finished: ${job.picked.length} file(s), ${minutes} minutes would be downloaded.`
-        : `Started ${job.picked.length} download(s), ${minutes} minutes. Chrome finishes them in the background.`,
+        : job.drive
+          ? `Started ${job.picked.length} file(s), ${minutes} minutes; each one is going straight into Google Drive.`
+          : `Started ${job.picked.length} download(s), ${minutes} minutes. Chrome finishes them in the background.`,
     });
   } finally {
     if (job.tabId !== null) { try { await chrome.tabs.remove(job.tabId); } catch { /* already closed */ } }
@@ -134,7 +197,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
   if (msg.type === 'waitStarted') {
-    const entry = pending.find((p) => p.start === msg.start) || [...active.values()].find((a) => a.start === msg.start);
+    const entry = pending.find((p) => p.start === msg.start) || [...active.values(), ...toDrive.values()].find((a) => a.start === msg.start);
     if (!entry) { sendResponse({ ok: false }); return false; }
     if (entry.downloadId !== undefined) { sendResponse({ ok: true }); return false; }
     const timer = setTimeout(() => {
@@ -178,7 +241,59 @@ async function waitUntilNoSaveAs() {
 
 const SAVE_AS_HELP = (part) => `Chrome is asking where to save part ${part}: press Save in that window (the name and folder are already filled in). To stop these windows, switch off "Ask where to save each file before downloading" at chrome://settings/downloads.`;
 
+// ---------- straight to Drive ----------
+const toDrive = new Map();   // Chrome download id -> entry (the file goes to Drive, not to Downloads)
+
+// LiveBarn's own Download click starts a normal Chrome download (that's what LiveBarn counts).
+// In Drive mode the helper cancels Chrome's copy at once and streams the same file into Drive itself,
+// so there's no Save As window and nothing lands in Downloads.
+chrome.downloads.onCreated.addListener(async (item) => {
+  const url = item.finalUrl || item.url;
+  if (!job || !job.drive || !P.isLiveBarnMedia(url) || pending.length === 0) return;
+  const entry = pending.shift();
+  entry.downloadId = item.id;
+  entry.drive = true;
+  toDrive.set(item.id, entry);
+  if (job.started) job.started.push(entry.start);
+  try { await chrome.downloads.cancel(item.id); await chrome.downloads.erase({ id: item.id }); } catch { /* already gone */ }
+  const name = P.driveNameFor(entry.fileName, job.drive.view);
+  const original = P.liveBarnFileName(url);
+  entry.started();
+  post(entry.port, { type: 'download', state: 'started', part: entry.part, fileName: name, toDrive: true });
+  try {
+    await ensureOffscreen();
+    await chrome.runtime.sendMessage({
+      target: 'offscreen', type: 'transfer', id: item.id, url, name, folderPath: job.drive.folderPath,
+      note: {
+        gameId: job.drive.gameId, view: job.drive.view, start: entry.start, startSec: P.startSecFromName(original) ?? entry.start * 60,
+        original: original ? { name: original } : null,
+      },
+    });
+  } catch (err) {
+    post(entry.port, { type: 'transfer', state: 'error', part: entry.part, message: `Couldn't start moving it to Drive: ${err.message}` });
+  }
+});
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || msg.target !== 'background' || sender.id !== chrome.runtime.id) return false;
+  if (msg.type === 'token') {
+    // fresh: the old pass was turned down, so drop it and get a new one quietly
+    const forget = msg.fresh ? chrome.storage.session.remove('google').catch(() => {}).then(() => { google = { token: null, expiresAt: 0 }; }) : Promise.resolve();
+    forget.then(() => googleToken(false)).then((token) => sendResponse({ token }));
+    return true;
+  }
+  if (msg.type === 'transfer') {
+    const entry = toDrive.get(msg.id);
+    if (entry) {
+      post(entry.port, { type: 'transfer', state: msg.state, part: entry.part, sent: msg.sent, total: msg.total, driveId: msg.driveId, size: msg.size, name: msg.name, message: msg.message });
+      if (msg.state === 'done' || msg.state === 'error') toDrive.delete(msg.id);
+    }
+  }
+  return false;
+});
+
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+  if (toDrive.has(item.id)) return;
   if (!P.isLiveBarnMedia(item.finalUrl || item.url) || pending.length === 0) return;
   const entry = pending.shift();
   entry.downloadId = item.id;

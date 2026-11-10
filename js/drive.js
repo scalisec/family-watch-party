@@ -185,3 +185,47 @@ export async function trashFile(id) {
   });
   if (!res.ok && res.status !== 404) throw new Error(`Drive wouldn't move a part to the trash (${res.status}).`);
 }
+
+// Reads part of a Drive file: lets the app join parts straight from Drive without downloading them first.
+export function driveReader(id, size) {
+  return {
+    size,
+    async read(start, end) {
+      if (end <= start) return new Uint8Array(0);
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          const res = await gfetch(`${API}/files/${encodeURIComponent(id)}?alt=media`, { headers: { Range: `bytes=${start}-${end - 1}` } });
+          if (!res.ok && res.status !== 206) throw new Error(`Drive wouldn't send part of the file (${res.status}).`);
+          return new Uint8Array(await res.arrayBuffer());
+        } catch (err) {
+          if (attempt >= 4 || err.code === 'not-connected') throw err;
+          await sleep(1000 * attempt);
+        }
+      }
+    },
+  };
+}
+
+// The files in a folder (by path), or [] when the folder doesn't exist yet.
+export async function listFolder(path) {
+  let parent = 'root';
+  for (const name of path) {
+    const f = await findChild(parent, name, FOLDER);
+    if (!f) return [];
+    parent = f.id;
+  }
+  const q = [`${quote(parent)} in parents`, 'trashed = false'].join(' and ');
+  const res = await gjson(`${API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime)&spaces=drive&pageSize=200`);
+  return res.files || [];
+}
+
+export async function readJsonFile(id) {
+  const res = await gfetch(`${API}/files/${encodeURIComponent(id)}?alt=media`);
+  if (!res.ok) throw new Error(`Drive wouldn't send a file (${res.status}).`);
+  return res.json();
+}
+
+export async function deleteFile(id) {
+  const res = await gfetch(`${API}/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) throw new Error(`Drive wouldn't delete a file (${res.status}).`);
+}

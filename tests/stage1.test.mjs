@@ -13,8 +13,10 @@ const manifest = JSON.parse(read('extension/manifest.json'));
 // ---------- extension security guard rails ----------
 test('manifest: Manifest V3 with only the permissions we documented', () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ['downloads']);
-  assert.deepEqual(manifest.host_permissions, ['https://watch.livebarn.com/*']);
+  assert.deepEqual(manifest.permissions, ['downloads', 'identity', 'offscreen', 'storage']);
+  assert.deepEqual(manifest.host_permissions, ['https://watch.livebarn.com/*', 'https://livebarn-prod-vod-media.s3.amazonaws.com/*', 'https://www.googleapis.com/*']);
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  for (const p of [...manifest.permissions, ...manifest.host_permissions]) assert.ok(readme.includes(`\`${p}\``), `README explains ${p}`);
   assert.equal(manifest.optional_permissions, undefined);
   assert.equal(manifest.web_accessible_resources, undefined);
 });

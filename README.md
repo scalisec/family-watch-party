@@ -12,11 +12,16 @@ The helper is the only part that touches LiveBarn. It uses your own signed-in Li
 
 | Permission | Why |
 | --- | --- |
-| `downloads` | To give the game files LiveBarn downloads tidy names and a folder (`Downloads/FamilyWatchParty/<kid>/<date and game>/`). It only renames files coming from LiveBarn's media host, and never starts a download by itself. |
+| `downloads` | To give the game files LiveBarn downloads tidy names and a folder (`Downloads/FamilyWatchParty/<kid>/<date and game>/`), or, in Drive mode, to cancel Chrome's copy of a LiveBarn file so the helper can move it into Drive instead. It only touches files coming from LiveBarn's media host, and never starts a download by itself. |
 | `https://watch.livebarn.com/*` | To press LiveBarn's buttons on the game page: PANO, Download › 30 minute clip, and the files that overlap the game. |
+| `https://livebarn-prod-vod-media.s3.amazonaws.com/*` | Drive mode: to read the game file LiveBarn just gave you (after its own Download button was pressed), so it can be streamed into Drive. |
+| `https://www.googleapis.com/*` | Drive mode: to save those files into your Family Hockey folders in Google Drive and leave a small note for the app. |
+| `identity` | To sign the helper in to Google once (you approve it), with the same **drive.file** permission as the app: only files this app created. The pass lasts about an hour and renews quietly while you're signed in to Google in Chrome. |
+| `offscreen` | An invisible helper page that moves a file into Drive while it downloads, so long transfers aren't cut off. |
+| `storage` | Remembers that you connected it, and keeps the short-lived Google pass only until Chrome closes (session storage). |
 | Talks only to `https://scalisec.github.io` | Only the Family Watch Party site can send it requests (`externally_connectable`, and the background worker checks the sender's address). Any other website is ignored. |
 
-It has no access to other websites, your browsing history, cookies, passwords or other tabs, makes no network requests of its own, and loads no code from the internet.
+It has no access to other websites, your browsing history, cookies, passwords or other tabs, and loads no code from the internet. Its only network requests are the LiveBarn file you asked for and Google's Drive API.
 
 ### Install (while it's in testing)
 

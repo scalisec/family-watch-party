@@ -1,7 +1,7 @@
 // Talks to the Family Watch Party LiveBarn helper extension.
 export const HELPER_ID = 'ihlieolhaepnpncmgebcejlabomnifmi';
 // The oldest helper version this app works with. Raise it when the extension changes.
-export const MIN_HELPER = '0.1.2';
+export const MIN_HELPER = '0.2.0';
 
 export function helperOutdated(version) {
   const a = String(version || '0').split('.').map(Number);
