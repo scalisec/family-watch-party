@@ -28,7 +28,6 @@
       <a href="settings.html">Settings</a>
     </nav>
     <div class="row">
-      <span id="helperChip" class="chip">LiveBarn helper: checking…</span>
       <button id="googleBtn" class="chip chip-btn chip-action" type="button">Connect Google</button>
     </div>
   </header>
@@ -40,11 +39,11 @@
     </div>
 
     <div class="summary-grid">
-      <section class="card" aria-labelledby="minutes-h">
-        <h2 id="minutes-h" class="card-label">LiveBarn downloads this month</h2>
-        <strong id="minutesValue" class="stat">— of 30 hours</strong>
-        <div class="meter" role="img" aria-label="LiveBarn minutes used"><div id="minutesBar" class="meter-fill" style="width: 0%"></div></div>
-        <span id="minutesNote" class="small muted">Shows your real usage after the helper's first download.</span>
+      <section class="card" aria-labelledby="todo-h">
+        <h2 id="todo-h" class="card-label">To-download list</h2>
+        <strong id="todoValue" class="stat">—</strong>
+        <ul id="todoList" class="todo-list"></ul>
+        <span id="todoNote" class="small muted">Press ＋ on a game, here or on your phone, and it waits here for when you're at the PC.</span>
       </section>
       <section id="driveCard" class="card" aria-labelledby="drive-h">
         <h2 id="drive-h" class="card-label">Google Drive</h2>
@@ -52,10 +51,8 @@
       <section class="card card-accent" aria-labelledby="ready-h">
         <h2 id="ready-h" class="card-label">Ready to download</h2>
         <strong id="readyValue" class="stat">—</strong>
-        <div class="row">
-          <button id="downloadAll" class="btn btn-primary" type="button">Download all ready</button>
-          <button id="downloadSelected" class="btn" type="button">Download selected</button>
-        </div>
+        <span id="readyNote" class="small muted"></span>
+        <div class="row"><a id="nextGuide" class="btn btn-primary" hidden>Open the next download guide</a></div>
       </section>
     </div>
 
@@ -75,7 +72,7 @@
         <table class="games">
           <thead>
             <tr>
-              <th scope="col" class="col-check"><span class="visually-hidden">Select</span></th>
+              <th scope="col" class="col-check"><span class="visually-hidden">To-download list</span></th>
               <th scope="col">Date</th>
               <th scope="col">Kid · team</th>
               <th scope="col">Game</th>
@@ -96,7 +93,7 @@
       <div id="upcoming" class="upcoming-grid"></div>
     </section>
 
-    <p class="small muted">Testing tools: <a href="helper-test.html">LiveBarn helper test</a> · <a href="pano-check.html">PANO check</a></p>
+    <p class="small muted">Testing tool: <a href="pano-check.html">PANO check</a></p>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

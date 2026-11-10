@@ -1,11 +1,10 @@
-// Settings: Google account, Drive, download choices, teams, helper, and resetting this browser.
+// Settings: Google account, Drive, download choices, teams, and resetting this browser.
 import { TEAMS, DATA_BASE } from './config.js';
 import { $, h, toast, formatBytes, readSaved, save, driveFolderLink } from './ui.js';
 import { isConnected, accountEmail, disconnect } from './google.js';
 import { setupHeader } from './header.js';
 import { cachedRecord, loadGoogle } from './data.js';
 import { totals } from './library.js';
-import { pingHelper, helperOutdated, MIN_HELPER, HELPER_UPDATE_STEPS } from './helper-client.js';
 import { VERSION, RELEASES, compareVersions, latestVersion, releaseDate } from './version.js';
 import { platform, canPrompt, onInstallChange, promptInstall } from './install.js';
 
@@ -56,7 +55,7 @@ function setupView() {
     input.checked = input.value === current;
     input.addEventListener('change', () => {
       save(DEFAULT_VIEW_KEY, input.value);
-      $('viewNote').textContent = `Saved. Downloads will use ${input.value}. (Importing works with either; the app tells PANO and AUTO apart by the picture size.)`;
+      $('viewNote').textContent = `Saved. The download guide will ask for ${input.value}. (Importing works with either; the app tells PANO and AUTO apart by the picture size.)`;
     });
   }
 }
@@ -174,11 +173,6 @@ async function start() {
     $('driveMeter').hidden = true;
     $('folderLink').hidden = true;
     toast('Signed out of Google in this app.');
-  });
-  pingHelper().then((version) => {
-    $('helperStatus').textContent = version
-      ? (helperOutdated(version) ? `Version ${version} is installed but out of date (needs ${MIN_HELPER}). ${HELPER_UPDATE_STEPS}` : `Installed in this browser (version ${version}).`)
-      : 'Not found in this browser. It only runs in Chrome on your PC, after loading it in Developer mode.';
   });
   if (isConnected()) await onConnected();
 }

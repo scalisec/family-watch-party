@@ -2,9 +2,10 @@
 // the final buzzer, and save one full-game file per camera view to Drive. Clips go up as they are.
 import { TEAMS } from './config.js';
 import { dayLabel, timeLabel } from './games.js';
-import { partsByView, joinedFile, setMarks, clockSec, alreadyImported, folderPath, scheduleMarks } from './library.js';
+import { partsByView, joinedFile, setMarks, clockSec, alreadyImported, folderPath, scheduleMarks, setToDownload, downloadedIds } from './library.js';
 import { parseVideoFileName, viewFromSize, kindFor } from './import-match.js';
-import { $, h, toast, formatBytes, formatDuration, driveFolderLink, readMeta } from './ui.js';
+import { $, h, toast, formatBytes, formatDuration, driveFolderLink, readMeta, pickVideoFiles, readSaved } from './ui.js';
+import { guideWindows, minutesUpTo, clockLabel } from './guide.js';
 import { isConnected, NotConnectedError } from './google.js';
 import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, cacheRecord, combine, loadGoogle } from './data.js';
@@ -327,6 +328,64 @@ function openEditor() {
   $('clipCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ---------- download guide ----------
+const GUIDE_KEY = () => `fwp.guide.${gameId}`;
+function guideState() { try { return JSON.parse(localStorage.getItem(GUIDE_KEY()) || '{}'); } catch { return {}; } }
+function saveGuide(g) { try { localStorage.setItem(GUIDE_KEY(), JSON.stringify(g)); } catch { /* fine */ } }
+
+function renderGuide() {
+  const g = state.game;
+  const done = g && (downloadedIds(state.record).has(g.id) || VIEWS.some((v) => joinedFile(state.record, g.id, v)));
+  const played = g && g.startMs <= Date.now();
+  $('guideCard').hidden = !g || !played || Boolean(done);
+  if ($('guideCard').hidden) return;
+  const view = readSaved('fwp.defaultView', 'PANO') === 'AUTO' ? 'AUTO' : 'PANO';
+  $('guideView').textContent = view;
+  const onList = Boolean((state.record.toDownload || {})[g.id]);
+  $('todoToggle').hidden = false;
+  $('todoToggle').textContent = onList ? '✓ On your To-download list' : '＋ Add to To-download list';
+  if (!g.liveBarn) {
+    $('guideSummary').textContent = "This game has no LiveBarn rink yet. Press Pick the LiveBarn rink at the top first.";
+    $('guideWindows').replaceChildren();
+    $('guideMore').hidden = true;
+    return;
+  }
+  $('guideMore').hidden = false;
+  const saved = guideState();
+  const windows = guideWindows(g, { extraWindows: saved.extra || 0 });
+  const ticks = saved.done || {};
+  const left = windows.filter((w) => !ticks[w.start]).length;
+  $('guideSummary').textContent = `${clockLabel(windows[0] ? windows[0].from : 0)} to about ${clockLabel(windows.length ? windows[windows.length - 1].to : 0)} · ${windows.length} window${windows.length === 1 ? '' : 's'} · up to ${minutesUpTo(windows)} minutes of your LiveBarn time (each file counts for its full length)${g.liveBarn.picked ? ' · rink picked by you' : ''}.`;
+  $('guideWindows').replaceChildren(...windows.map((w) => h('li', { class: ticks[w.start] ? 'done' : '' },
+    h('label', { class: 'guide-tick' }, h('input', {
+      type: 'checkbox', checked: Boolean(ticks[w.start]), 'aria-label': `Done with the ${clockLabel(w.start)} window`,
+      onchange: (e) => { const s = guideState(); s.done = { ...(s.done || {}), [w.start]: e.target.checked }; saveGuide(s); renderGuide(); },
+    })),
+    h('span', { class: 'guide-text' },
+      h('strong', {}, `${clockLabel(w.start)} window`),
+      h('span', { class: 'small muted' }, w.extra ? ` · the whole window (game ran long)` : ` · take the file(s) covering ${clockLabel(w.from)}–${clockLabel(w.to)}`)),
+    h('a', { class: 'btn btn-small', href: w.url, target: '_blank', rel: 'noopener', onclick: () => { const s = guideState(); s.opened = { ...(s.opened || {}), [w.start]: true }; saveGuide(s); } }, 'Open in LiveBarn ↗'))));
+  $('guideNote').textContent = left ? '' : 'All windows ticked: now press Pick files below.';
+}
+
+async function toggleToDownload() {
+  if (!isConnected()) { toast('Connect Google first, so the list is saved where your phone and PC can both see it.'); return; }
+  const on = !(state.record.toDownload || {})[gameId];
+  try {
+    if (!state.library) {
+      const out = await loadGoogle();
+      if (!out || !out.library) throw new Error("Couldn't open the Family Hockey folder in Drive.");
+      state.library = out.library;
+      state.record = out.library.record;
+    }
+    state.record = setToDownload(state.record, gameId, on);
+    state.library = await saveLibrary({ ...state.library, record: state.record });
+    cacheRecord(state.record);
+    toast(on ? 'Added to your To-download list.' : 'Taken off your To-download list.');
+  } catch (err) { toast(`Couldn't save the list: ${err.message}`, 6000); }
+  renderGuide();
+}
+
 // ---------- LiveBarn rink ----------
 function renderLinks() {
   const g = state.game;
@@ -346,6 +405,7 @@ async function openPicker() {
   state.library = out.library;
   state.game = withRinks([state.baseGame], state.record)[0];
   renderLinks();
+  renderGuide();
 }
 
 function renderAll() {
@@ -364,6 +424,7 @@ function renderAll() {
   renderMake();
   renderWatch();
   renderLinks();
+  renderGuide();
 }
 
 // ---------- saving ----------
@@ -476,7 +537,9 @@ async function onConnected() {
 }
 
 function wire() {
-  $('fileInput').addEventListener('change', (e) => { pickFiles([...e.target.files]); e.target.value = ''; });
+  $('pickBtn').addEventListener('click', async () => { const files = await pickVideoFiles($('fileInput')); if (files.length) pickFiles(files); });
+  $('guideMore').addEventListener('click', () => { const g = guideState(); g.extra = (g.extra || 0) + 1; saveGuide(g); renderGuide(); });
+  $('todoToggle').addEventListener('click', toggleToDownload);
   const zone = $('dropZone');
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragging'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));
@@ -513,6 +576,7 @@ async function start() {
   document.title = `${state.game.opponentLabel} · Family Watch Party`;
   loadMarks();
   renderAll();
+  if (location.hash === '#guideCard' && !$('guideCard').hidden) $('guideCard').scrollIntoView({ block: 'start' });
   if (isConnected()) await onConnected();
 }
 

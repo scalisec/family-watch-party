@@ -1,7 +1,6 @@
 // The Google button and LiveBarn helper status in the header, shared by every page.
 import { $, toast } from './ui.js';
 import { connect, isConnected, wasConnected, accountEmail, onChange } from './google.js';
-import { pingHelper, helperOutdated } from './helper-client.js';
 import { h } from './ui.js';
 import { registerApp } from './stream.js';
 import { VERSION, compareVersions, latestVersion } from './version.js';
@@ -62,13 +61,4 @@ export function setupHeader(onConnected) {
   registerApp();
   quietUpdateCheck();
 
-  const chip = $('helperChip');
-  if (chip) {
-    pingHelper().then((version) => {
-      const old = version && helperOutdated(version);
-      chip.textContent = old ? 'LiveBarn helper needs an update' : version ? '● LiveBarn helper' : 'LiveBarn helper not installed';
-      chip.className = `chip ${old ? 'chip-work' : version ? 'chip-good' : 'chip-muted'}`;
-      if (old) chip.title = 'See Settings → LiveBarn helper for how to update it.';
-    });
-  }
 }

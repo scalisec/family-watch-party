@@ -5,7 +5,9 @@ import { $, h, toast, readSaved, save, formatBytes } from './ui.js';
 import { isConnected, wasConnected } from './google.js';
 import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, combine, loadGoogle } from './data.js';
-import { shortTournament } from './library.js';
+import { shortTournament, setToDownload, toDownloadGames } from './library.js';
+import { saveLibrary } from './drive.js';
+import { cacheRecord } from './data.js';
 import { withRinks, watchUrl } from './rinks.js';
 import { pickRink } from './rink-picker.js';
 
@@ -23,6 +25,29 @@ const state = {
 };
 
 const games = () => withRinks(combine(state.league, state.teamsnap), state.record);
+
+const onList = (game) => Boolean((state.record.toDownload || {})[game.id]);
+
+async function toggleList(game) {
+  if (!isConnected() || !state.library) { toast('Connect Google first, so the list is saved where your phone and PC can both see it.'); return; }
+  const on = !onList(game);
+  try {
+    state.record = setToDownload(state.record, game.id, on);
+    state.library = await saveLibrary({ ...state.library, record: state.record });
+    cacheRecord(state.record);
+    toast(on ? `Added ${game.opponentLabel} (${dayLabel(game.date)}) to your To-download list.` : 'Taken off your To-download list.');
+  } catch (err) { toast(`Couldn't save the list: ${err.message}`, 6000); }
+  render();
+}
+
+function renderTodo(all) {
+  const list = toDownloadGames(state.record, all);
+  $('todoValue').textContent = list.length ? `${list.length} game${list.length === 1 ? '' : 's'}` : 'Nothing on it';
+  $('todoList').replaceChildren(...list.slice(0, 4).map((g) => h('li', {},
+    h('a', { href: `join.html?game=${encodeURIComponent(g.id)}#guideCard` }, `${dayLabel(g.date)} · ${g.kid} · ${g.opponentLabel}`),
+    h('button', { type: 'button', class: 'chip-x', 'aria-label': `Take ${g.opponentLabel} off the list`, onclick: () => toggleList(g) }, '×'))));
+  $('todoNote').textContent = list.length > 4 ? `and ${list.length - 4} more (marked ✓ below)` : list.length ? 'Open one for its download guide.' : 'Press ＋ on a game, here or on your phone, and it waits here for when you\'re at the PC.';
+}
 
 async function openPicker(game) {
   const out = await pickRink({ game, games: games(), record: state.record, library: state.library });
@@ -62,7 +87,7 @@ function actionFor(game, status) {
       : h('a', { class: 'btn btn-small', href: page }, 'Open');
   }
   if (status.key === 'ready' || status.key === 'leaves-soon') {
-    return [h('button', { type: 'button', class: 'btn btn-primary btn-small', onclick: () => soon('Downloading from LiveBarn') }, 'Download'), lb, link('Import files', page), change];
+    return [h('a', { class: 'btn btn-primary btn-small', href: `${page}#guideCard` }, 'Download guide'), lb, link('Import files', page), change];
   }
   if (status.key === 'no-link') {
     return [h('button', { type: 'button', class: 'btn btn-small', onclick: () => openPicker(game) }, 'Pick rink'), link('Import files', page)];
@@ -101,12 +126,17 @@ function statusDetail(game, status) {
 
 function gameRow(game, now, downloaded) {
   const status = videoStatus(game, now, downloaded);
-  const selectable = status.key === 'ready' || status.key === 'leaves-soon';
+  const selectable = ['ready', 'leaves-soon', 'no-link', 'today'].includes(status.key);
   const result = game.result
     ? h('span', { class: `result result-${game.result.outcome}` }, `${game.result.outcome} ${game.result.us}–${game.result.them}`)
     : h('span', { class: 'result result-none' }, status.key === 'today' ? 'Today' : 'Score to come');
   return h('tr', {},
-    h('td', { class: 'col-check c-check' }, h('input', { type: 'checkbox', 'aria-label': `Select ${game.opponentLabel}, ${dayLabel(game.date)}`, disabled: !selectable, 'data-id': game.id })),
+    h('td', { class: 'col-check c-check' }, selectable || onList(game) ? h('button', {
+      type: 'button', class: `todo-btn${onList(game) ? ' on' : ''}`, 'aria-pressed': String(onList(game)),
+      'aria-label': `${onList(game) ? 'Take off' : 'Add to'} the To-download list: ${game.opponentLabel}, ${dayLabel(game.date)}`,
+      title: onList(game) ? 'On your To-download list' : 'Add to your To-download list',
+      onclick: () => toggleList(game),
+    }, onList(game) ? '✓' : '＋') : null),
     h('td', { class: 'c-when' }, h('span', { class: 'nowrap' }, dayLabel(game.date)), h('span', { class: 'sub' }, timeLabel(game.time))),
     h('td', { class: 'c-kid' }, h('span', { class: `kid-${game.kid.toLowerCase()}` }, game.kid), h('span', { class: 'sub nowrap' }, game.teamLabel)),
     h('td', { class: 'c-game' }, h('div', { class: 'game-cell' }, logoFor(game), h('div', {}, h('strong', {}, game.opponentLabel), gameTag(game)))),
@@ -168,7 +198,14 @@ function render() {
 
   const mine = state.kid === 'all' ? all : all.filter((g) => g.kid === state.kid);
   const s = summarize(mine, now, downloaded);
-  $('readyValue').textContent = s.ready ? `${s.ready} game${s.ready === 1 ? '' : 's'} · about ${s.ready} hour${s.ready === 1 ? '' : 's'}` : 'Nothing waiting';
+  $('readyValue').textContent = s.ready ? `${s.ready} game${s.ready === 1 ? '' : 's'}` : 'Nothing waiting';
+  const ready = mine.filter((g) => ['ready', 'leaves-soon'].includes(videoStatus(g, now, downloaded).key)).sort((a, b) => a.startMs - b.startMs);
+  $('nextGuide').hidden = !ready.length;
+  if (ready.length) {
+    $('nextGuide').href = `join.html?game=${encodeURIComponent(ready[0].id)}#guideCard`;
+    $('readyNote').textContent = `Oldest first: ${dayLabel(ready[0].date)} · ${ready[0].kid} · ${ready[0].opponentLabel}. Each game uses up to about 90 minutes of LiveBarn time.`;
+  } else $('readyNote').textContent = '';
+  renderTodo(all);
 
   const needs = [];
   if (s.leavesSoon) needs.push(`${s.leavesSoon} game${s.leavesSoon === 1 ? ' leaves' : 's leave'} LiveBarn in the next 3 days.`);
@@ -210,11 +247,5 @@ async function start() {
 }
 
 $('showMore').addEventListener('click', () => { state.shown += RECENT_PAGE; render(); });
-$('downloadAll').addEventListener('click', () => soon('Downloading from LiveBarn'));
-$('downloadSelected').addEventListener('click', () => {
-  const n = document.querySelectorAll('#recentBody input[type="checkbox"]:checked').length;
-  if (!n) { toast('Tick the games you want first.'); return; }
-  soon('Downloading from LiveBarn');
-});
 
 start();

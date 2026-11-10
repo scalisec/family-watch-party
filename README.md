@@ -4,47 +4,17 @@ A personal app for downloading Lucas's and Grace's hockey games from LiveBarn (P
 
 Live site: https://scalisec.github.io/family-watch-party/
 
-## The LiveBarn helper (Chrome extension)
+## Downloading from LiveBarn (guided)
 
-The helper is the only part that touches LiveBarn. It uses your own signed-in LiveBarn account and LiveBarn's own Download button, one game at a time, only when you ask.
+There's no browser extension: you download from LiveBarn yourself, and the app does the rest.
 
-### What it can do (its permissions)
+1. On a played game, press **Download guide** (or ＋ to put it on the **To-download list**, from your phone or PC).
+2. The guide lists the 30-minute LiveBarn windows the game covers, each with an **Open in LiveBarn** button at the right rink and time, and which part of each window to take. In LiveBarn: **PANO**, then **Download → Download 30 minute clip**, and download the files covering those times. Save them wherever you like.
+3. Back on the game page, **Pick files** (opens in Downloads). The app matches the files, pre-sets puck drop and the final buzzer from the schedule, and saves one trimmed file per view to `Family Hockey › <kid> › <season team> › <date opponent> › full game`.
 
-| Permission | Why |
-| --- | --- |
-| `downloads` | To give the game files LiveBarn downloads tidy names and a folder (`Downloads/FamilyWatchParty/<kid>/<date and game>/`), or, in Drive mode, to cancel Chrome's copy of a LiveBarn file so the helper can move it into Drive instead. It only touches files coming from LiveBarn's media host, and never starts a download by itself. |
-| `https://watch.livebarn.com/*` | To press LiveBarn's buttons on the game page: PANO, Download › 30 minute clip, and the files that overlap the game. |
-| `https://livebarn-prod-vod-media.s3.amazonaws.com/*` | Drive mode: to read the game file LiveBarn just gave you (after its own Download button was pressed), so it can be streamed into Drive. |
-| `https://www.googleapis.com/*` | Drive mode: to save those files into your Family Hockey folders in Google Drive and leave a small note for the app. |
-| `identity` | To sign the helper in to Google once (you approve it), with the same **drive.file** permission as the app: only files this app created. The pass lasts about an hour and renews quietly while you're signed in to Google in Chrome. |
-| `offscreen` | An invisible helper page that moves a file into Drive while it downloads, so long transfers aren't cut off. |
-| `storage` | Remembers that you connected it, and keeps the short-lived Google pass only until Chrome closes (session storage). |
-| Talks only to `https://scalisec.github.io` | Only the Family Watch Party site can send it requests (`externally_connectable`, and the background worker checks the sender's address). Any other website is ignored. |
+Each LiveBarn file counts against your monthly minutes for its full length, so a 1-hour game uses up to about 90 minutes.
 
-It has no access to other websites, your browsing history, cookies, passwords or other tabs, and loads no code from the internet. Its only network requests are the LiveBarn file you asked for and Google's Drive API.
-
-### Install (while it's in testing)
-
-1. Download this repository (**Code › Download ZIP** on GitHub) and unzip it somewhere you'll keep it, e.g. `Documents\family-watch-party`.
-2. In Chrome, go to `chrome://extensions`.
-3. Turn on **Developer mode** (top right).
-4. Press **Load unpacked** and choose the `extension` folder inside the unzipped repository.
-5. "Family Watch Party – LiveBarn helper" appears in the list. Its ID should be `ihlieolhaepnpncmgebcejlabomnifmi`.
-
-To update it later: replace the folder with the new version, then press the reload arrow on the helper's card in `chrome://extensions`.
-
-Once it's stable, it can move to the Chrome Web Store as an unlisted extension, and Developer mode can be switched off.
-
-### What it does for one game
-
-1. Opens the game on LiveBarn at the right rink, date and 30-minute window.
-2. Switches the player to **PANO**.
-3. Opens **Download › 30 minute clip** and reads the list of recording files and your minutes used.
-4. Checks the files are PANO ones; if LiveBarn offers AUTO files instead, it stops without downloading.
-5. Presses **Download** on each file that overlaps the game, one at a time, waiting for each to start. It never presses the same file twice, and stops if one doesn't start.
-6. Moves to the next 30-minute window until the game is covered, then closes the LiveBarn tab. Chrome finishes the downloads in the background.
-
-A **dry run** does steps 1–4 and reports what it would download, using none of your minutes.
+An automatic helper (a Chrome extension that downloaded straight to Drive) was built and tested, then set aside to keep the app simpler and more secure. It's kept in git under the tag `auto-helper-0.2.0`.
 
 ## Google access
 
@@ -97,7 +67,8 @@ node --test tests/*.test.mjs
 - [x] Clip editor: wide or tall, follow framing, slow motion, freeze-and-draw (spotlight, arrows, circles, text), save to Drive, save or share
 - [x] Season highlight reel: pick a kid's clips, joined in game order with title cards, saved to `Highlight reels` in Drive
 - [x] Pick rink: LiveBarn rink for games without a link (known rinks from all league schedules, or paste a LiveBarn link), saved in the Drive record; Open in LiveBarn at the game's time
-- [ ] Stage 3b: download from LiveBarn straight into Drive, and "Pick rink" for games without a LiveBarn link
+- [x] Guided LiveBarn download: per-game guide with window links, To-download list synced through Drive (automatic helper set aside, tag `auto-helper-0.2.0`)
+- [ ] Later, if wanted: bring back the automatic helper (tag `auto-helper-0.2.0`) with the security hardening
 - [ ] Stage 4: game page and player
 - [ ] Stage 5: clip editor, save and share
 - [ ] Stage 6: settings and polish

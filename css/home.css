@@ -106,3 +106,12 @@ table.games td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-
 .c-action { text-align: right; }
 .action-link { display: block; margin-top: 6px; white-space: nowrap; }
 .chip-work { color: var(--work); border-color: var(--work); }
+
+/* To-download list */
+.todo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.todo-list li { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 14px; }
+.todo-btn { width: 32px; height: 32px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--ink); font-size: 16px; cursor: pointer; }
+.todo-btn:hover { border-color: var(--accent); }
+.todo-btn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
+.chip-x { background: none; border: 0; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; min-width: 28px; min-height: 28px; border-radius: 999px; }
+.chip-x:hover { color: var(--ink); }

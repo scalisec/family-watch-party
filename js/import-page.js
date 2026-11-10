@@ -4,7 +4,7 @@ import { TEAMS } from './config.js';
 import { dayLabel, timeLabel } from './games.js';
 import { parseVideoFileName, matchFile, viewFromSize, kindFor } from './import-match.js';
 import { alreadyImported, downloadedIds, joinedFile, partsByView } from './library.js';
-import { $, h, toast, formatBytes, formatDuration, driveFolderLink, readMeta } from './ui.js';
+import { $, h, toast, formatBytes, formatDuration, driveFolderLink, readMeta, pickVideoFiles } from './ui.js';
 import { isConnected, NotConnectedError } from './google.js';
 import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, cacheRecord, combine, loadGoogle } from './data.js';
@@ -409,7 +409,7 @@ async function onConnected() {
 }
 
 function setupPicker() {
-  $('fileInput').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
+  $('pickBtn').addEventListener('click', async () => { const files = await pickVideoFiles($('fileInput')); if (files.length) addFiles(files); });
   const zone = $('dropZone');
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragging'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));

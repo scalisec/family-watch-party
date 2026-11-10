@@ -49,6 +49,24 @@
 
     <p id="pageError" class="error-box" role="alert" hidden></p>
 
+    <section id="guideCard" class="card card-accent" aria-labelledby="guide-h" hidden>
+      <div class="section-head">
+        <h2 id="guide-h">Download from LiveBarn</h2>
+        <button id="todoToggle" class="btn btn-small" type="button" hidden>＋ Add to To-download list</button>
+      </div>
+      <p id="guideSummary" class="muted"></p>
+      <ol class="guide-steps">
+        <li>Open each window below. In LiveBarn, press <strong id="guideView">PANO</strong> above the video, then <strong>Download → Download 30 minute clip</strong>.</li>
+        <li>Download the file(s) that cover the times listed for that window. Save them wherever you like.</li>
+        <li>Come back here and press <strong>Pick files</strong> below. The app matches them, sets the start and end from the schedule, and saves one trimmed file to the game's Drive folder.</li>
+      </ol>
+      <ul id="guideWindows" class="guide-windows"></ul>
+      <div class="row">
+        <button id="guideMore" class="btn btn-small" type="button">Game ran long: add the next window</button>
+        <span id="guideNote" class="small muted"></span>
+      </div>
+    </section>
+
     <section id="watchCard" class="card" aria-labelledby="watch-h" hidden>
       <div class="section-head">
         <h2 id="watch-h">Watch the game</h2>
@@ -71,7 +89,7 @@
       <ul id="partsList" class="parts-list"></ul>
       <div id="dropZone" class="drop-zone drop-small">
         <p id="dropText"><strong>Pick this game's files on this PC</strong>: the full-game downloads and any clips. Nothing goes to Drive until you press Save.</p>
-        <label class="btn" for="fileInput">Pick files</label>
+        <button id="pickBtn" class="btn btn-primary" type="button">Pick files</button>
         <input id="fileInput" type="file" accept="video/*,.mp4,.mov,.m4v" multiple hidden>
       </div>
     </section>

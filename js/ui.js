@@ -77,3 +77,23 @@ export function readMeta(file) {
     v.src = url;
   });
 }
+
+// Opens the file picker in the Downloads folder where the browser allows it; falls back to the plain picker.
+export async function pickVideoFiles(input) {
+  if (window.showOpenFilePicker) {
+    try {
+      const handles = await window.showOpenFilePicker({
+        multiple: true, startIn: 'downloads', id: 'fwp-videos',
+        types: [{ description: 'Videos', accept: { 'video/mp4': ['.mp4', '.m4v'], 'video/quicktime': ['.mov'] } }],
+      });
+      return Promise.all(handles.map((x) => x.getFile()));
+    } catch (err) {
+      if (err.name === 'AbortError') return [];
+    }
+  }
+  return new Promise((resolve) => {
+    const done = () => { input.removeEventListener('change', done); resolve([...input.files]); input.value = ''; };
+    input.addEventListener('change', done);
+    input.click();
+  });
+}

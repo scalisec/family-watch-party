@@ -6,8 +6,7 @@ import { mergeGames } from './teamsnap.js';
 import { normalizeRecord, emptyRecord } from './library.js';
 import { readJson, saveJson } from './ui.js';
 import { isConnected, setAccountEmail } from './google.js';
-import { about, loadLibrary, saveLibrary, listFolder, readJsonFile, deleteFile } from './drive.js';
-import { INBOX, mergeHelperNotes } from './library.js';
+import { about, loadLibrary } from './drive.js';
 import { teamSnapGames } from './calendar.js';
 
 async function getJson(rel) {
@@ -50,7 +49,6 @@ export async function loadGoogle() {
   if (acct.status === 'fulfilled') { out.about = acct.value; setAccountEmail(acct.value.user && acct.value.user.emailAddress); } else out.problems.push(`Drive storage: ${acct.reason.message}`);
   if (lib.status === 'fulfilled') {
     out.library = lib.value;
-    try { out.library = await takeHelperNotes(out.library); } catch (err) { out.problems.push(`Helper downloads: ${err.message}`); }
     cacheRecord(out.library.record);
   } else out.problems.push(`Drive folders: ${lib.reason.message}`);
   if (cal.status === 'fulfilled') {
@@ -59,16 +57,4 @@ export async function loadGoogle() {
     if (cal.value.missing.length) out.problems.push(`No TeamSnap calendar found for ${cal.value.missing.join(' and ')}. Check its name in Google Calendar.`);
   } else out.problems.push(`TeamSnap calendars: ${cal.reason.message}`);
   return out;
-}
-
-// Files the LiveBarn helper saved to Drive since last time: add them to the record, then clear the notes.
-export async function takeHelperNotes(library) {
-  const files = (await listFolder(INBOX)).filter((f) => /\.json$/.test(f.name));
-  if (!files.length) return library;
-  const notes = [];
-  for (const f of files) { try { notes.push({ ...(await readJsonFile(f.id)), noteId: f.id }); } catch { /* try again next time */ } }
-  const { record, added } = mergeHelperNotes(library.record, notes);
-  const next = added ? await saveLibrary({ ...library, record }) : library;
-  for (const n of notes) { try { await deleteFile(n.noteId); } catch { /* next time */ } }
-  return next;
 }

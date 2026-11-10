@@ -58,6 +58,7 @@ export function normalizeRecord(rec) {
   const out = { version: 1, updatedAt: rec.updatedAt || null, games: rec.games };
   if (Array.isArray(rec.reels)) out.reels = rec.reels;
   if (rec.rinks && typeof rec.rinks === 'object') out.rinks = rec.rinks;
+  if (rec.toDownload && typeof rec.toDownload === 'object') out.toDownload = rec.toDownload;
   return out;
 }
 
@@ -190,29 +191,6 @@ export function reelList(record, kid) {
   return (record.reels || []).filter((r) => !kid || r.kid === kid).sort((a, b) => String(b.addedAt).localeCompare(String(a.addedAt)));
 }
 
-// ---------- the helper's inbox ----------
-// The LiveBarn helper leaves one small note per file it saved to Drive in this folder; the app adds
-// them to the record and then deletes the notes.
-export const INBOX = [ROOT_FOLDER, 'Helper inbox'];
-
-export function mergeHelperNotes(record, notes, now = new Date().toISOString()) {
-  let out = record;
-  const known = new Set(Object.values(record.games).flatMap((g) => g.files.map((f) => f.driveId)));
-  let added = 0;
-  for (const n of notes) {
-    if (!n || n.type !== 'part' || !n.gameId || !n.driveId || known.has(n.driveId)) continue;
-    out = addFile(out, n.gameId, {
-      driveId: n.driveId, name: n.name, kind: 'full', view: n.view || 'PANO',
-      start: Number.isFinite(n.start) ? n.start : null, startSec: Number.isFinite(n.startSec) ? n.startSec : (Number.isFinite(n.start) ? n.start * 60 : null),
-      size: n.size || null, duration: n.duration || null, fromHelper: true,
-      original: n.original || null,
-    }, now);
-    known.add(n.driveId);
-    added += 1;
-  }
-  return { record: out, added };
-}
-
 // Marks from the schedule: puck drop at the scheduled time, final buzzer an hour later.
 export function scheduleMarks(parts, game, lengthMin = 60) {
   const t = parseHHMMSafe(game && game.time);
@@ -224,4 +202,18 @@ export function scheduleMarks(parts, game, lengthMin = 60) {
     return { id: best.id, sec: Math.max(0, Math.min(clock, end) - best.clock) };
   };
   return { start: at(t * 60), end: at(t * 60 + lengthMin * 60), estimated: false, fromSchedule: true };
+}
+
+// ---------- the To-download list (add from any device, synced through Drive) ----------
+export function setToDownload(record, gameId, on, now = new Date().toISOString()) {
+  const list = { ...(record.toDownload || {}) };
+  if (on) list[gameId] = { addedAt: now }; else delete list[gameId];
+  return { ...record, updatedAt: now, toDownload: list };
+}
+
+// Games on the list that still need downloading, in the order they leave LiveBarn (oldest first).
+export function toDownloadGames(record, games) {
+  const list = record.toDownload || {};
+  const done = downloadedIds(record);
+  return games.filter((g) => list[g.id] && !done.has(g.id)).sort((a, b) => a.startMs - b.startMs);
 }
