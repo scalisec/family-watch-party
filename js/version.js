@@ -1,8 +1,9 @@
 // The app's version and release history (newest first). Keep VERSION, package.json,
 // version.json and each page's byline in step: the tests check they match.
-export const VERSION = '0.13.0';
+export const VERSION = '0.14.0';
 
 export const RELEASES = [
+  { version: '0.14.0', date: '2026-11-10', notes: ['Upload queue: Save gets the trimmed game ready on this PC in about a minute, then it goes to Drive in the background. Go back to your games or start the next one.', 'Uploads button at the top of every screen shows progress; uploads pick up where they stopped after closing the app or restarting.', 'PANO only by default: tick AUTO on a game to save that view too.'] },
   { version: '0.13.0', date: '2026-11-10', notes: ['Guided LiveBarn downloads: each game page lists the 30-minute windows to open in LiveBarn and what to take from each, with ticks.', 'To-download list: press ＋ on a game from your phone or PC; it waits on the home screen.', 'Pick files opens in your Downloads folder; parts are pre-marked from the schedule.', 'The LiveBarn helper extension is no longer needed: remove it from Chrome.'] },
   { version: '0.12.2', date: '2026-11-10', notes: ['LiveBarn helper 0.1.2: waits while a file sits on Chrome\'s Save As window instead of giving up, and says what to do.', 'A file Chrome starts late still gets the right name.', 'Helper test reminds you to switch off Chrome\'s "Ask where to save each file".'] },
   { version: '0.12.1', date: '2026-11-09', notes: ['LiveBarn helper 0.1.1: waits for each 30-minute window to load before reading it (fixes the dry run stopping at the second window).', 'The app tells you when the helper is missing or out of date, and how to fix it.'] },

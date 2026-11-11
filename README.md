@@ -68,6 +68,7 @@ node --test tests/*.test.mjs
 - [x] Season highlight reel: pick a kid's clips, joined in game order with title cards, saved to `Highlight reels` in Drive
 - [x] Pick rink: LiveBarn rink for games without a link (known rinks from all league schedules, or paste a LiveBarn link), saved in the Drive record; Open in LiveBarn at the game's time
 - [x] Guided LiveBarn download: per-game guide with window links, To-download list synced through Drive (automatic helper set aside, branch `auto-helper-0.2.0`)
+- [x] Upload queue: Save keeps the trimmed file in the browser's private storage on this PC (OPFS) and uploads it to Drive in the background from any page; resumes after closing the app (Drive keeps an unfinished upload about a week). PANO only by default; AUTO is a tick box.
 - [ ] Later, if wanted: bring back the automatic helper (branch `auto-helper-0.2.0`) with the security hardening
 - [ ] Stage 4: game page and player
 - [ ] Stage 5: clip editor, save and share

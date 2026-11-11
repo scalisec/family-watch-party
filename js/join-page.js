@@ -12,7 +12,8 @@ import { loadLeague, cachedTeamSnap, cachedRecord, cacheRecord, combine, loadGoo
 import { saveLibrary, downloadFile, ensureFolder, driveReader } from './drive.js';
 import { Mp4Error } from './mp4.js';
 import { createMarker, marksValid, lengthOf, markClock, clockText, cutFor } from './marker.js';
-import { prepareJoin, publishJoined, publishClip } from './publish.js';
+import { prepareJoin, publishClip, joinedQueueItem, clipQueueItem, queuedOriginal } from './publish.js';
+import { saveCopy, enqueue, onQueueChange, queuedFor, queueItems } from './upload-queue.js';
 import { streamReady, streamUrl } from './stream.js';
 import { createWatcher } from './watch.js';
 import { createClipEditor } from './clip-editor.js';
@@ -56,10 +57,13 @@ function driveParts() {
 }
 
 // Every view's parts, in time order: Drive parts plus new full-game files from this PC
+// Views with a full game waiting in the upload queue are left out until it's in Drive.
+const queuedViews = () => new Set(queuedFor(gameId).filter((i) => i.kind === 'full').map((i) => i.view));
 function views() {
   const out = driveParts();
+  for (const v of queuedViews()) delete out[v];
   for (const f of state.local) {
-    if (f.kind !== 'full' || f.blocked) continue;
+    if (f.kind !== 'full' || f.blocked || queuedViews().has(f.view)) continue;
     (out[f.view] = out[f.view] || []).push(f);
   }
   for (const v of Object.keys(out)) {
@@ -99,6 +103,7 @@ async function getBlob(part, onProgress) {
 
 function blockReason(f) {
   if (f.kind !== 'full') return '';
+  if (queuedViews().has(f.view)) return `This game's ${f.view} full game is already in the uploads.`;
   const done = joinedFile(state.record, gameId, f.view);
   return done ? `This game already has a full ${f.view} file in Drive.` : '';
 }
@@ -114,6 +119,7 @@ async function pickFiles(fileList) {
     if (part) { state.blobs.set(part.driveId, file); linked += 1; continue; }
     if (state.local.some((f) => same(f.file))) continue;
     if (alreadyImported(state.record, file)) { toast(`${file.name} is already in Drive.`); continue; }
+    if (queuedOriginal(queueItems(), file)) { toast(`${file.name} is already in the uploads.`); continue; }
     const parsed = parseVideoFileName(file.name);
     state.local.push({
       id: `local-${state.nextId++}`, file, parsed, size: file.size, clock: Number.isFinite(parsed.seconds) ? parsed.seconds : null,
@@ -216,7 +222,9 @@ function chosenViews() {
     const ready = state.whole || marksValid(all, state.marks, v);
     if (!ready) return false;
     const estimated = !state.whole && state.marks[v] && state.marks[v].estimated;
-    return v in state.make ? state.make[v] : !estimated;
+    // PANO only by default: AUTO is saved only when ticked (unless it's the only view)
+    const autoOff = v === 'AUTO' && Object.keys(all).some((x) => x !== 'AUTO');
+    return v in state.make ? state.make[v] : !estimated && !autoOff;
   });
 }
 
@@ -234,13 +242,19 @@ function renderMake() {
       const len = lengthOf(all, state.marks, view);
       detail = `${clockText(markClock(all, view, m.start))} → ${clockText(markClock(all, view, m.end))}${len != null ? ` · about ${formatDuration(len)}` : ''} · from ${list.length} part${list.length === 1 ? '' : 's'}${m.estimated ? ' · marks estimated, check them' : ''}`;
     } else detail = 'Set puck drop and the final buzzer, or tick Use whole files.';
+    if (ok && view === 'AUTO' && !ticked && Object.keys(all).some((x) => x !== 'AUTO')) detail += ' · not saved unless ticked (it doubles the upload)';
     items.push(h('li', {}, h('label', {},
       h('input', { type: 'checkbox', checked: ok && ticked, disabled: !ok || state.busy, onchange: (e) => { state.make[view] = e.target.checked; renderMake(); } }),
       h('span', {}, h('strong', {}, `${view}: `), h('span', { class: ok ? '' : 'muted' }, detail)))));
   }
   const clips = localClips();
   if (clips.length) items.push(h('li', {}, h('span', {}, h('strong', {}, 'Clips: '), `${clips.length} added as they are, to the game's clips folder`)));
+  for (const q of queuedFor(gameId)) {
+    const p = q.size ? Math.floor(((q.sent || 0) / q.size) * 100) : 0;
+    items.push(h('li', {}, h('span', {}, h('strong', {}, q.kind === 'full' ? `${q.view}: ` : 'Clip: '), q.kind === 'full' ? `full game waiting to go to Drive (${p}% sent)` : `${q.name} (${p}% sent)`), h('span', { class: 'pill' }, q.state === 'error' ? 'Problem: see Uploads' : 'Uploading')));
+  }
   for (const view of VIEWS) {
+    if (queuedViews().has(view)) continue;
     const done = state.game ? joinedFile(state.record, gameId, view) : null;
     if (done && !all[view]) items.push(h('li', {}, h('span', {}, h('strong', {}, `${view}: `), `full game is in Drive (${done.duration ? formatDuration(done.duration) : formatBytes(done.size)})`), h('span', { class: 'pill pill-good' }, 'Done')));
   }
@@ -435,8 +449,9 @@ function setProgress(fraction, text) {
   $('makeNote').textContent = text;
 }
 
+// Save makes the trimmed file and keeps a copy on this PC (a few seconds to a minute), then hands it to
+// the upload queue. The upload carries on in the background, so there's no need to wait on this page.
 async function save() {
-  if (!isConnected()) { toast('Connect Google first.'); return; }
   const chosen = chosenViews();
   const clips = localClips();
   if (!chosen.length && !clips.length) return;
@@ -448,15 +463,8 @@ async function save() {
   $('doneCard').hidden = true;
   showError('');
   renderAll();
-  const saved = [];
-  let notTrashed = 0;
+  const queued = [];
   try {
-    if (!state.library) {
-      const out = await loadGoogle();
-      if (!out || !out.library) throw new Error("Couldn't open the Family Hockey folder in Drive. Try again in a minute.");
-      state.library = out.library;
-      state.record = out.library.record;
-    }
     for (const view of chosen) {
       const all = views();
       const parts = all[view];
@@ -464,35 +472,27 @@ async function save() {
         setProgress(0, `${view}: ${what}${got ? ` (${formatBytes(got)} of ${formatBytes(size)})` : ''}…`);
       });
       if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
-      const out = await publishJoined({
-        joined, used, parts, game: state.game, team: state.team, view, record: state.record, library: state.library, signal,
-        onSent: (sent) => setProgress(sent / joined.size, `${view}: saving to Drive, ${formatBytes(sent)} of ${formatBytes(joined.size)}. Keep this page open.`),
+      const localName = await saveCopy(joined, (done, size) => {
+        if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
+        setProgress(done / size, `${view}: getting the file ready for upload, ${formatBytes(done)} of ${formatBytes(size)}…`);
       });
-      state.record = out.record;
-      state.library = out.library;
-      cacheRecord(state.record);
-      notTrashed += out.notTrashed;
+      await enqueue({ ...joinedQueueItem({ joined, used, parts, game: state.game, team: state.team, view }), localName });
       state.local = state.local.filter((f) => !(f.kind === 'full' && f.view === view));
       delete state.marks[view];
-      saved.push(`${view} full game (${formatDuration(joined.duration)})`);
+      queued.push(`${view} full game (${formatDuration(joined.duration)}, ${formatBytes(joined.size)})`);
     }
     for (const c of clips) {
       if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
-      const out = await publishClip({
-        file: c.file, duration: c.duration, game: state.game, team: state.team, record: state.record, library: state.library, signal,
-        onSent: (sent) => setProgress(sent / c.size, `Clip ${c.file.name}: ${formatBytes(sent)} of ${formatBytes(c.size)}`),
-      });
-      state.record = out.record;
-      state.library = out.library;
-      cacheRecord(state.record);
+      const localName = await saveCopy(c.file, (done, size) => setProgress(done / size, `Clip ${c.file.name}: getting it ready for upload…`));
+      await enqueue({ ...clipQueueItem({ file: c.file, duration: c.duration, game: state.game, team: state.team }), localName });
       state.local = state.local.filter((f) => f !== c);
-      saved.push(`clip ${out.name}`);
+      queued.push(`clip ${c.file.name}`);
     }
   } catch (err) {
-    if (err.name === 'AbortError') toast('Stopped. Anything already saved stays in Drive.');
+    if (err.name === 'AbortError') toast('Stopped. Anything already in the uploads carries on.');
     else if (err instanceof NotConnectedError) toast('Google sign-in ran out. Press Reconnect Google, then Save again.', 8000);
     else if (err instanceof Mp4Error) showError(err.message);
-    else showError(`Couldn't save to Drive: ${err.message}`);
+    else showError(`Couldn't get the file ready: ${err.message}`);
   } finally {
     state.busy = false;
     state.abort = null;
@@ -501,11 +501,11 @@ async function save() {
     if (state.marker && !Object.keys(views()).length) { state.marker.destroy(); state.marker = null; }
     renderAll();
   }
-  if (saved.length) {
-    $('doneText').textContent = `Saved to Drive: ${saved.join(', ')}.${notTrashed ? ' Some parts couldn\'t be moved to the trash; you can delete them in Drive.' : ''}`;
+  if (queued.length) {
+    $('doneText').textContent = `Uploading to Drive: ${queued.join(', ')}. It carries on in the background, so you can go back to your games or start the next one. Press Uploads at the top to see how it's going. ${isConnected() ? '' : 'Connect Google at the top to start the upload. '}Keep the app open on this PC until it's done; if you close it, it picks up where it stopped next time.`;
     $('doneCard').hidden = false;
     $('driveLink').hidden = true;
-    ensureFolder(folderPath(state.game, state.team, 'full').slice(0, -1)).then((id) => { $('driveLink').href = driveFolderLink(id); $('driveLink').hidden = false; }).catch(() => {});
+    if (isConnected()) ensureFolder(folderPath(state.game, state.team, 'full').slice(0, -1)).then((id) => { $('driveLink').href = driveFolderLink(id); $('driveLink').hidden = false; }).catch(() => {});
   }
 }
 
@@ -551,8 +551,19 @@ function wire() {
   window.addEventListener('beforeunload', (e) => { if (state.busy) { e.preventDefault(); e.returnValue = ''; } });
 }
 
+function onQueue(event) {
+  if (event && event.type === 'progress') { if (!state.busy) renderMake(); return; }
+  if (event && event.type === 'done' && event.record) {
+    state.record = event.record;
+    if (state.library) state.library = { ...state.library, record: event.record };
+    if (state.baseGame) state.game = withRinks([state.baseGame], state.record)[0];
+  }
+  if (!state.busy) renderAll();
+}
+
 async function start() {
   setupHeader(onConnected);
+  onQueueChange(onQueue);
   wire();
   let games = [];
   try {

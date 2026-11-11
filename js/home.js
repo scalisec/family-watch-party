@@ -10,6 +10,7 @@ import { saveLibrary } from './drive.js';
 import { cacheRecord } from './data.js';
 import { withRinks, watchUrl } from './rinks.js';
 import { pickRink } from './rink-picker.js';
+import { queuedFor, onQueueChange } from './upload-queue.js';
 
 const RECENT_PAGE = 12;
 const state = {
@@ -124,6 +125,19 @@ function statusDetail(game, status) {
   return parts.join(' · ');
 }
 
+// A game whose full-game file is in the upload queue shows how far along it is.
+function uploadingCell(game) {
+  const q = queuedFor(game.id).filter((i) => i.kind === 'full');
+  if (!q.length) return null;
+  const size = q.reduce((t, i) => t + (i.size || 0), 0);
+  const sent = q.reduce((t, i) => t + (i.sent || 0), 0);
+  const pct = size ? Math.floor((sent / size) * 100) : 0;
+  const bad = q.some((i) => i.state === 'error');
+  return h('td', { class: 'c-video' },
+    h('span', { class: `pill ${bad ? 'pill-bad' : 'pill-info'}` }, bad ? 'Upload problem' : `Uploading ${pct}%`),
+    h('span', { class: 'sub' }, bad ? 'Press Uploads at the top' : `${q.map((i) => i.view).join(' + ')} going to Drive`));
+}
+
 function gameRow(game, now, downloaded) {
   const status = videoStatus(game, now, downloaded);
   const selectable = ['ready', 'leaves-soon', 'no-link', 'today'].includes(status.key);
@@ -142,7 +156,7 @@ function gameRow(game, now, downloaded) {
     h('td', { class: 'c-game' }, h('div', { class: 'game-cell' }, logoFor(game), h('div', {}, h('strong', {}, game.opponentLabel), gameTag(game)))),
     h('td', { class: 'c-result' }, result),
     h('td', { class: 'c-rink' }, game.rink || h('span', { class: 'muted' }, '—')),
-    h('td', { class: 'c-video' }, h('span', { class: `pill ${PILL[status.key]}` }, status.label), h('span', { class: 'sub' }, statusDetail(game, status))),
+    uploadingCell(game) || h('td', { class: 'c-video' }, h('span', { class: `pill ${PILL[status.key]}` }, status.label), h('span', { class: 'sub' }, statusDetail(game, status))),
     h('td', { class: 'c-action' }, actionFor(game, status)),
   );
 }
@@ -228,6 +242,13 @@ async function refreshGoogle() {
 
 async function start() {
   setupHeader(refreshGoogle);
+  let lastPaint = 0;
+  onQueueChange((event) => {
+    if (event && event.type === 'done' && event.record) { state.record = event.record; if (state.library) state.library = { ...state.library, record: event.record }; }
+    if (event && event.type === 'progress' && Date.now() - lastPaint < 2000) return;
+    lastPaint = Date.now();
+    render();
+  });
   render();
   try {
     const league = await loadLeague();

@@ -109,21 +109,35 @@ async function uploadedSoFar(session, size) {
 }
 
 // Uploads one file in pieces; onProgress(bytesSent). Retries a piece up to 5 times on network trouble.
-export async function uploadFile(file, folderId, name, onProgress = () => {}, signal) {
+// Starts a resumable upload; the address it returns stays valid for about a week.
+export async function startUpload(folderId, name, size, type = 'video/mp4') {
   const start = await gfetch(`${UPLOAD}/files?uploadType=resumable&fields=id,name,size`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=UTF-8',
-      'X-Upload-Content-Type': file.type || 'video/mp4',
-      'X-Upload-Content-Length': String(file.size),
+      'X-Upload-Content-Type': type || 'video/mp4',
+      'X-Upload-Content-Length': String(size),
     },
     body: JSON.stringify({ name, parents: [folderId] }),
   });
   if (!start.ok) throw new Error(`Drive wouldn't start the upload (${start.status}).`);
   const session = start.headers.get('Location');
   if (!session) throw new Error("Drive didn't give an upload address. Try again in a minute.");
+  return session;
+}
 
-  let offset = 0;
+// How far an upload got: { offset } or { done: true, file }. { expired: true } when Drive no longer knows it.
+export async function uploadStatus(session, size) {
+  const res = await fetch(session, { method: 'PUT', headers: { 'Content-Range': `bytes */${size}` } });
+  if (res.status === 200 || res.status === 201) return { done: true, file: await res.json() };
+  if (res.status === 404 || res.status === 410) return { expired: true };
+  if (res.status !== 308) throw new Error(`Drive couldn't say how far the upload got (${res.status}).`);
+  const r = res.headers.get('Range');
+  return { offset: r ? Number(r.split('-')[1]) + 1 : 0 };
+}
+
+// Sends the rest of a file from offset; resolves with the Drive file when complete.
+export async function continueUpload(session, file, offset = 0, onProgress = () => {}, signal) {
   let failures = 0;
   while (offset < file.size || file.size === 0) {
     if (signal && signal.aborted) throw new DOMException('Upload stopped', 'AbortError');
@@ -144,11 +158,12 @@ export async function uploadFile(file, folderId, name, onProgress = () => {}, si
       onProgress(offset);
       continue;
     }
+    if (res && (res.status === 404 || res.status === 410)) throw Object.assign(new Error('Drive forgot this upload; it will start again.'), { code: 'expired' });
     if (res && res.status < 500 && res.status !== 429 && res.status !== 408) {
       throw new Error(`Drive stopped the upload (${res.status}).`);
     }
     failures += 1;
-    if (failures > 5) throw new Error('The connection kept dropping. Try this file again.');
+    if (failures > 5) throw new Error('The connection kept dropping. It will try again.');
     await sleep(1000 * 2 ** failures);
     const state = await uploadedSoFar(session, file.size);
     if (state.done) { onProgress(file.size); return state.file; }
@@ -156,6 +171,11 @@ export async function uploadFile(file, folderId, name, onProgress = () => {}, si
     onProgress(offset);
   }
   throw new Error('Upload ended without a file.');
+}
+
+export async function uploadFile(file, folderId, name, onProgress = () => {}, signal) {
+  const session = await startUpload(folderId, name, file.size, file.type);
+  return continueUpload(session, file, 0, onProgress, signal);
 }
 
 

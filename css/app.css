@@ -126,3 +126,16 @@ label { font-size: 13px; font-weight: 600; }
 .check-line { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
 .check-line input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
 .warn-text { color: var(--work); }
+
+/* Uploads */
+.upload-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; padding: 20px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface, #0F2140); color: var(--ink); }
+.upload-dialog::backdrop { background: rgba(3, 9, 20, 0.7); }
+.upload-dialog h2 { margin: 0; }
+.upload-list { list-style: none; margin: 12px 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.upload-list li { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.upload-list p { margin: 0; }
+.upload-head { display: flex; justify-content: space-between; gap: 12px; }
+#uploadsBtn { font-variant-numeric: tabular-nums; }
+#uploadsBtn.chip-good { border-color: var(--good); }
+#uploadsBtn.chip-work { color: var(--work); border-color: var(--work); }
+.upload-list .meter { background: var(--line-strong); }

@@ -8,10 +8,10 @@ import { $, h, toast, formatBytes, formatDuration, driveFolderLink, readMeta, pi
 import { isConnected, NotConnectedError } from './google.js';
 import { setupHeader } from './header.js';
 import { loadLeague, cachedTeamSnap, cachedRecord, cacheRecord, combine, loadGoogle } from './data.js';
-import { loadLibrary } from './drive.js';
 import { Mp4Error } from './mp4.js';
 import { createMarker, marksValid, markClock, clockText, lengthOf, cutFor } from './marker.js';
-import { prepareJoin, publishJoined, publishClip } from './publish.js';
+import { prepareJoin, joinedQueueItem, clipQueueItem, queuedOriginal } from './publish.js';
+import { saveCopy, enqueue, queueItems, queuedFor, onQueueChange } from './upload-queue.js';
 
 const state = {
   games: [],
@@ -30,7 +30,7 @@ const state = {
 
 const gameById = (id) => state.games.find((g) => g.id === id) || null;
 const teamFor = (game) => TEAMS.find((t) => t.key === game.teamKey);
-const groupFor = (id) => { state.groups[id] = state.groups[id] || { marks: {}, whole: false }; return state.groups[id]; };
+const groupFor = (id) => { state.groups[id] = state.groups[id] || { marks: {}, whole: false, auto: false }; return state.groups[id]; };
 
 // ---------- reading files ----------
 async function addFiles(fileList) {
@@ -54,15 +54,17 @@ async function addFiles(fileList) {
     row.state = 'ready';
     row.include = Boolean(row.gameId);
     if (alreadyImported(state.record, row.file)) { row.state = 'skipped'; row.include = false; row.reason = 'Already in Drive.'; }
+    else if (queuedOriginal(queueItems(), row.file)) { row.state = 'queued'; row.include = false; }
     render();
   }
 }
 
 // ---------- games and their parts ----------
-const included = () => state.rows.filter((r) => r.include && r.gameId && r.state !== 'done' && r.state !== 'reading');
+const included = () => state.rows.filter((r) => r.include && r.gameId && r.state !== 'done' && r.state !== 'queued' && r.state !== 'reading');
 
 // Why a game's files for a view can't be joined here (empty when they can)
 function blockFor(gameId, view) {
+  if (queuedFor(gameId).some((i) => i.kind === 'full' && i.view === view)) return `already has its ${view} full game in the uploads`;
   if (joinedFile(state.record, gameId, view)) return `already has a full ${view} file in Drive`;
   if ((partsByView(state.record, gameId)[view] || []).length) return `has ${view} parts in Drive already: open the game's page to finish it`;
   return '';
@@ -77,10 +79,18 @@ export function groupRows(rows) {
   return [...out.values()];
 }
 
+// PANO only by default: AUTO files are left out unless "Also save AUTO" is ticked (or AUTO is all there is)
+function autoLeftOut(group) {
+  const open = group.full.filter((r) => !blockFor(group.gameId, r.view));
+  return open.some((r) => r.view === 'AUTO') && open.some((r) => r.view !== 'AUTO') && !groupFor(group.gameId).auto;
+}
+
 function viewsFor(group) {
   const out = {};
+  const noAuto = autoLeftOut(group);
   for (const r of group.full) {
     if (blockFor(group.gameId, r.view)) continue;
+    if (noAuto && r.view === 'AUTO') continue;
     (out[r.view] = out[r.view] || []).push({
       id: `row-${r.id}`, row: r, file: r.file, size: r.file.size,
       clock: Number.isFinite(r.parsed.seconds) ? r.parsed.seconds : null, duration: r.meta && r.meta.duration,
@@ -124,6 +134,8 @@ function statusCell(row) {
       h('div', { class: 'row-progress', role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': `${row.file.name} upload` }, h('div', { style: `width: ${pct}%` }))];
   }
   if (row.state === 'done') return [h('span', { class: 'pill pill-good' }, 'In Drive'), h('span', { class: 'sub' }, row.savedAs || '')];
+  if (row.state === 'queued') return [h('span', { class: 'pill pill-info' }, 'In the uploads'), h('span', { class: 'sub' }, row.savedAs ? `Going to Drive as ${row.savedAs}. Press Uploads at the top to see progress.` : 'Press Uploads at the top to see progress.')];
+  if (row.state === 'left') return [h('span', { class: 'pill pill-none' }, 'Not saved'), h('span', { class: 'sub' }, 'AUTO was left out. Tick Also save AUTO and upload again to keep it.')];
   if (row.state === 'error') return [h('span', { class: 'pill pill-bad' }, 'Didn\'t upload'), h('span', { class: 'sub' }, row.error)];
   if (row.state === 'skipped') return [h('span', { class: 'pill pill-info' }, 'Already in Drive'), h('span', { class: 'sub' }, 'Tick it to upload again anyway.')];
   if (!row.gameId) return [h('span', { class: 'pill pill-work' }, 'Pick the game'), h('span', { class: 'sub' }, row.reason)];
@@ -133,7 +145,7 @@ function statusCell(row) {
 }
 
 function rowEl(row) {
-  const locked = state.uploading || row.state === 'done' || row.state === 'reading';
+  const locked = state.uploading || row.state === 'done' || row.state === 'queued' || row.state === 'reading';
   return h('tr', { class: row.state === 'skipped' && !row.include ? 'skipped' : '' },
     h('td', { class: 'col-check c-check' }, h('input', {
       type: 'checkbox', checked: row.include, disabled: locked || !row.gameId,
@@ -167,6 +179,7 @@ function groupText(group) {
   }
   const blocked = [...new Set(group.full.map((r) => r.view))].map((v) => [v, blockFor(group.gameId, v)]).filter(([, why]) => why);
   for (const [, why] of blocked) bits.push(`skipped: this game ${why}`);
+  if (autoLeftOut(group)) bits.push('AUTO left out (tick Also save AUTO to keep it too; it doubles the upload)');
   if (group.clips.length) bits.push(`${group.clips.length} clip${group.clips.length === 1 ? '' : 's'} as they are`);
   return bits.join(' · ');
 }
@@ -191,6 +204,10 @@ function groupEl(group) {
         type: 'checkbox', checked: g.whole, disabled: locked,
         onchange: (e) => { g.whole = e.target.checked; if (g.whole && state.marking === group.gameId) closeMarker(); render(); },
       }), 'Use whole files') : null,
+      group.full.some((r) => r.view === 'AUTO') && group.full.some((r) => r.view !== 'AUTO') ? h('label', {}, h('input', {
+        type: 'checkbox', checked: g.auto, disabled: locked,
+        onchange: (e) => { g.auto = e.target.checked; if (state.marking === group.gameId) closeMarker(); render(); },
+      }), 'Also save AUTO') : null,
       hasFull && !g.whole ? h('button', {
         type: 'button', class: `btn btn-small${ready ? '' : ' btn-primary'}`, disabled: locked,
         onclick: () => openMarker(group.gameId),
@@ -224,9 +241,9 @@ function renderFooter() {
   $('clearBtn').disabled = state.uploading;
   if (!state.uploading) {
     const notes = [];
-    if (!isConnected() && what) notes.push('Connect Google at the top to upload.');
+    if (!isConnected() && what) notes.push('The uploads start once Google is connected.');
     if (plan.waiting.length) notes.push(`${plan.waiting.length} game${plan.waiting.length === 1 ? ' still needs' : 's still need'} marking and will wait.`);
-    else if (what) notes.push('Keep this page open while it uploads.');
+    else if (what) notes.push("Getting the files ready takes about a minute per game; then they upload in the background and you can leave this page.");
     $('uploadNote').textContent = notes.join(' ');
   }
   $('gamesSummary').textContent = plan.groups.length ? `${plan.ready.length} of ${plan.groups.length} ready` : '';
@@ -284,30 +301,27 @@ function closeMarker() {
 }
 
 // ---------- uploading ----------
+// Upload makes each game's trimmed file and keeps a copy on this PC, then hands it to the upload queue,
+// which sends it to Drive in the background. Getting files ready takes seconds to a minute per game.
 async function upload() {
-  if (!isConnected()) { toast('Connect Google first.'); return; }
   const plan = uploadPlan();
   if (!plan.ready.length) return;
   closeMarker();
   state.uploading = true;
   state.stop = false;
-  const before = downloadedIds(state.record);
   let doneBytes = 0;
-  let uploadedGames = 0;
-  let uploadedClips = 0;
-  let notTrashed = 0;
+  let queuedGames = 0;
+  let queuedClips = 0;
   $('overall').hidden = false;
-  const setOverall = (sentOfItem) => {
-    const pct = Math.min(100, Math.round(((doneBytes + sentOfItem) / plan.bytes) * 100));
+  const setOverall = (ofItem, what) => {
+    const pct = Math.min(100, Math.round(((doneBytes + ofItem) / plan.bytes) * 100));
     $('overallFill').style.width = `${pct}%`;
     $('overall').setAttribute('aria-valuenow', String(pct));
-    $('uploadNote').textContent = `Uploading: about ${pct}% of ${formatBytes(plan.bytes)}. Keep this page open.`;
+    $('uploadNote').textContent = `Getting files ready for upload: ${what}, about ${pct}% of ${formatBytes(plan.bytes)}.`;
   };
   render();
 
   try {
-    if (!state.library) state.library = await loadLibrary();
-    state.record = state.library.record;
     for (const group of plan.ready) {
       if (state.stop) break;
       const game = gameById(group.gameId);
@@ -315,7 +329,9 @@ async function upload() {
       const g = groupFor(group.gameId);
       if (!game) { for (const r of [...group.full, ...group.clips]) { r.state = 'error'; r.error = 'That game is no longer in the list.'; } continue; }
       const views = viewsFor(group);
+      const leftOut = autoLeftOut(group) ? group.full.filter((r) => r.view === 'AUTO') : [];
       for (const [view, parts] of Object.entries(views)) {
+        if (state.stop) break;
         const rows = parts.map((p) => p.row);
         const share = parts.reduce((s, p) => s + p.size, 0);
         for (const r of rows) { r.state = 'uploading'; r.sent = 0; }
@@ -324,73 +340,56 @@ async function upload() {
           $('uploadNote').textContent = `${game.opponentLabel} ${view}: reading the files…`;
           const { joined, used } = await prepareJoin(parts, cutFor(views, g.marks, view, g.whole), (p) => Promise.resolve(p.file));
           let lastPaint = 0;
-          const out = await publishJoined({
-            joined, used, parts, game, team, view, record: state.record, library: state.library,
-            onSent: (sent) => {
-              const f = sent / joined.size;
-              for (const r of rows) r.sent = f;
-              setOverall(f * share);
-              if (Date.now() - lastPaint > 500) { lastPaint = Date.now(); render(); }
-            },
+          const localName = await saveCopy(joined, (done, size) => {
+            const f = done / size;
+            for (const r of rows) r.sent = f;
+            setOverall(f * share, `${game.opponentLabel} ${view}`);
+            if (Date.now() - lastPaint > 500) { lastPaint = Date.now(); render(); }
           });
-          state.record = out.record;
-          state.library = out.library;
-          cacheRecord(state.record);
-          notTrashed += out.notTrashed;
-          for (const r of rows) { r.state = 'done'; r.savedAs = out.name; r.include = false; }
-          uploadedGames += 1;
+          const item = await enqueue({ ...joinedQueueItem({ joined, used, parts, game, team, view }), localName });
+          for (const r of rows) { r.state = 'queued'; r.savedAs = item.name; r.include = false; }
+          queuedGames += 1;
         } catch (err) {
-          if (err instanceof NotConnectedError) throw err;
-          for (const r of rows) { r.state = 'error'; r.error = err instanceof Mp4Error ? err.message : `Couldn't save it: ${err.message}`; }
+          for (const r of rows) { r.state = 'error'; r.error = err instanceof Mp4Error ? err.message : `Couldn't get it ready: ${err.message}`; }
         }
         doneBytes += share;
         render();
       }
+      for (const r of leftOut) { if (r.state !== 'error') { r.state = 'left'; r.include = false; } }
       for (const r of group.clips) {
         if (state.stop) break;
         r.state = 'uploading';
         r.sent = 0;
         render();
         try {
-          let lastPaint = 0;
-          const out = await publishClip({
-            file: r.file, duration: r.meta && r.meta.duration, game, team, record: state.record, library: state.library,
-            onSent: (sent) => { r.sent = sent / r.file.size; setOverall(sent); if (Date.now() - lastPaint > 500) { lastPaint = Date.now(); render(); } },
-          });
-          state.record = out.record;
-          state.library = out.library;
-          cacheRecord(state.record);
-          r.state = 'done';
-          r.savedAs = out.name;
+          const localName = await saveCopy(r.file, (done, size) => { r.sent = done / size; setOverall(done, r.file.name); });
+          const item = await enqueue({ ...clipQueueItem({ file: r.file, duration: r.meta && r.meta.duration, game, team }), localName });
+          r.state = 'queued';
+          r.savedAs = item.name;
           r.include = false;
-          uploadedClips += 1;
+          queuedClips += 1;
         } catch (err) {
-          if (err instanceof NotConnectedError) throw err;
           r.state = 'error';
           r.error = err.message;
         }
         doneBytes += r.file.size;
         render();
       }
-      delete state.groups[group.gameId];
+      if (!state.stop) delete state.groups[group.gameId];
     }
-  } catch (err) {
-    for (const r of state.rows) if (r.state === 'uploading') { r.state = 'error'; r.error = 'Stopped: Google sign-in ran out.'; }
-    toast(err instanceof NotConnectedError ? 'Google sign-in ran out. Press Reconnect Google, then Upload again. Finished games are kept.' : err.message, 8000);
   } finally {
+    for (const r of state.rows) if (r.state === 'uploading') { r.state = 'ready'; r.sent = 0; }
     state.uploading = false;
     $('overall').hidden = true;
     render();
   }
 
-  const newGames = [...downloadedIds(state.record)].filter((id) => !before.has(id)).length;
   const failed = state.rows.filter((r) => r.state === 'error').length;
   const parts = [];
-  if (uploadedGames) parts.push(`${uploadedGames} full-game file${uploadedGames === 1 ? '' : 's'}`);
-  if (uploadedClips) parts.push(`${uploadedClips} clip${uploadedClips === 1 ? '' : 's'}`);
-  $('doneText').textContent = `Uploaded ${parts.join(' and ') || 'nothing'}. ${newGames} game${newGames === 1 ? ' is' : 's are'} now marked Downloaded.${failed ? ` ${failed} file${failed === 1 ? '' : 's'} didn't upload; they're marked in the list and can be tried again.` : ''}${notTrashed ? ' Some old parts couldn\'t be moved to the trash.' : ''}`;
-  if (state.library) $('driveLink').href = driveFolderLink(state.library.rootId);
-  $('driveLink').hidden = !state.library;
+  if (queuedGames) parts.push(`${queuedGames} full-game file${queuedGames === 1 ? '' : 's'}`);
+  if (queuedClips) parts.push(`${queuedClips} clip${queuedClips === 1 ? '' : 's'}`);
+  $('doneText').textContent = `${parts.length ? `${parts.join(' and ')} ${queuedGames + queuedClips === 1 ? 'is' : 'are'} in the uploads and going to Drive in the background. You can leave this page; press Uploads at the top to see how it's going. ${isConnected() ? '' : 'Connect Google at the top to start the upload. '}Keep the app open on this PC until it's done; if you close it, it picks up where it stopped next time.` : 'Nothing was added to the uploads.'}${failed ? ` ${failed} file${failed === 1 ? '' : 's'} couldn't be got ready; they're marked in the list and can be tried again.` : ''}`;
+  $('driveLink').hidden = true;
   $('doneCard').hidden = !parts.length && !failed;
 }
 
@@ -421,8 +420,21 @@ function setupPicker() {
   window.addEventListener('beforeunload', (e) => { if (state.uploading) { e.preventDefault(); e.returnValue = ''; } });
 }
 
+// When an upload finishes in the background, show its rows as In Drive.
+function onQueue(event) {
+  if (!event || event.type !== 'done' || !event.record) return;
+  state.record = event.record;
+  if (state.library) state.library = { ...state.library, record: event.record };
+  const left = queueItems();
+  for (const r of state.rows) {
+    if (r.state === 'queued' && !queuedOriginal(left, r.file) && alreadyImported(state.record, r.file)) r.state = 'done';
+  }
+  if (!state.uploading) render();
+}
+
 async function start() {
   setupHeader(onConnected);
+  onQueueChange(onQueue);
   setupPicker();
   render();
   try {
