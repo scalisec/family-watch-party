@@ -1,8 +1,9 @@
 // The app's version and release history (newest first). Keep VERSION, package.json,
 // version.json and each page's byline in step: the tests check they match.
-export const VERSION = '0.14.1';
+export const VERSION = '0.14.2';
 
 export const RELEASES = [
+  { version: '0.14.2', date: '2026-11-25', notes: ['Games, scores and team logos load from the Alliance Tracker\'s new address, so the schedule keeps working after its move.'] },
   { version: '0.14.1', date: '2026-11-16', notes: ['New logo: a TV showing crossed hockey sticks and a puck, with WATCH PARTY underneath. It shows in the header, as the app icon and on the browser tab.'] },
   { version: '0.14.0', date: '2026-11-10', notes: ['Upload queue: Save gets the trimmed game ready on this PC in about a minute, then it goes to Drive in the background. Go back to your games or start the next one.', 'Uploads button at the top of every screen shows progress; uploads pick up where they stopped after closing the app or restarting.', 'PANO only by default: tick AUTO on a game to save that view too.'] },
   { version: '0.13.0', date: '2026-11-10', notes: ['Guided LiveBarn downloads: each game page lists the 30-minute windows to open in LiveBarn and what to take from each, with ticks.', 'To-download list: press ＋ on a game from your phone or PC; it waits on the home screen.', 'Pick files opens in your Downloads folder; parts are pre-marked from the schedule.', 'The LiveBarn helper extension is no longer needed: remove it from Chrome.'] },

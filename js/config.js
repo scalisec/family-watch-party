@@ -1,8 +1,8 @@
 // Family Watch Party settings for the 2026-27 season.
-// Games and scores come from the Alliance Tracker's published data (same site, so no
-// cross-site permission is needed). Tournaments come from the TeamSnap calendars
+// Games and scores come from the Alliance Tracker's published data, at its Bench Boss Labs
+// address (GitHub Pages lets other sites read it). Tournaments come from the TeamSnap calendars
 // already synced into Google Calendar.
-export const DATA_BASE = '/alliance-tracker/';
+export const DATA_BASE = 'https://bench-boss-labs.github.io/alliance-tracker/';
 
 export const GOOGLE_CLIENT_ID = '1061398617166-8t015jus9o3vb95n6r46t01v46jnetkk.apps.googleusercontent.com';
 export const GOOGLE_SCOPES = [

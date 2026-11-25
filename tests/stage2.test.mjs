@@ -31,7 +31,7 @@ test('config: two kids, each with a feed, label and logo; data read from the sam
   for (const t of TEAMS) {
     for (const k of ['key', 'kid', 'label', 'feed', 'feedName', 'logo', 'season']) assert.ok(t[k], `${t.kid} missing ${k}`);
   }
-  assert.equal(DATA_BASE, '/alliance-tracker/');
+  assert.equal(DATA_BASE, 'https://bench-boss-labs.github.io/alliance-tracker/');
 });
 
 test('game table works on phones (cards under 720px)', () => {
