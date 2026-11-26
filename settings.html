@@ -12,6 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/game-book.css">
   <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/pages.css">
 </head>
@@ -21,12 +22,13 @@
       <img class="app-icon" src="icons/logo.svg" alt="" width="40" height="40">
       <span>
         <span class="app-name">Family Watch Party</span>
-        <span class="byline">BY BENCH BOSS LABS · V0.14.2</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.15.0</span>
       </span>
     </a>
     <nav class="main-nav" aria-label="Main">
       <a href="index.html">Games</a>
       <a href="clips.html">Clips</a>
+      <a href="stats.html">Stats</a>
       <a href="settings.html" aria-current="page">Settings</a>
     </nav>
     <div class="row">
@@ -96,6 +98,12 @@
         <h2 id="teams-h">Kids and teams</h2>
         <ul id="teamList" class="team-list"></ul>
         <p class="small muted">Games and scores come from the league schedules your Alliance Tracker publishes; tournaments come from the TeamSnap calendars in Google Calendar. Changing a team or adding next season is an app update: ask Claude.</p>
+      </section>
+
+      <section class="card" aria-labelledby="gamebook-h">
+        <h2 id="gamebook-h">Game Book</h2>
+        <p class="small muted">Each team's scorers, assists and penalties: from the game sheets, with corrections on top. Import a game sheet or correct a goal on a game's Summary tab.</p>
+        <ul id="bookList" class="team-list"></ul>
       </section>
 
       <section class="card" aria-labelledby="reset-h">

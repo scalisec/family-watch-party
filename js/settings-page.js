@@ -7,6 +7,9 @@ import { cachedRecord, loadGoogle } from './data.js';
 import { totals } from './library.js';
 import { VERSION, RELEASES, compareVersions, latestVersion, releaseDate } from './version.js';
 import { platform, canPrompt, onInstallChange, promptInstall } from './install.js';
+import { loadLibrary, saveLibrary } from './drive.js';
+import { cacheRecord } from './data.js';
+import { hasBook, bookState, cached, syncBook, pickBook, pickerReady, forgetBook, kidNumber, rememberKidNumber, bookName, onBookChange } from './game-book.js';
 
 export const DEFAULT_VIEW_KEY = 'fwp.defaultView';
 export function defaultView() { return readSaved(DEFAULT_VIEW_KEY, 'PANO') === 'AUTO' ? 'AUTO' : 'PANO'; }
@@ -42,11 +45,14 @@ async function onConnected() {
     $('driveStatus').textContent = out.problems.length ? out.problems.join(' ') : 'Connected.';
   }
   if (out.library) {
+    bookRecord = out.library.record;
     paintTotals(out.library.record);
     $('folderLink').href = driveFolderLink(out.library.rootId);
     $('folderLink').hidden = false;
   }
   paintGoogle();
+  paintBooks();
+  syncBooks();
 }
 
 function setupView() {
@@ -67,6 +73,67 @@ function setupTeams() {
       h('strong', {}, `${t.kid} · ${t.season} ${t.label}`),
       h('span', { class: 'small muted block' }, `League schedule: ${t.feedName}`),
       h('span', { class: 'small muted block' }, `TeamSnap calendar: ${t.calendarName}`)))));
+}
+
+// ---------- Game Book: the kids' numbers and where each team's book is ----------
+let bookRecord = null;
+function bookLine(t) {
+  const s = cached(t.key);
+  const state = bookState(t.key);
+  if (state === 'connect') return t.gameBook.shared ? 'The coaches’ Game Book in the Bulldogs team folder. Connect Google to open it.' : 'Kept in your Family Hockey folder. Connect Google to open it.';
+  if (state === 'pick') return `The coaches’ Game Book in the Bulldogs team folder. Connect it once a season: Google’s file picker opens, tap “${bookName(t)}”, then Select.`;
+  if (s.err) return `Couldn’t reach it in Drive: ${s.err}`;
+  const games = s.book ? Object.keys(s.book.games || {}).length : 0;
+  const where = t.gameBook.shared ? 'Shared with the Bulldogs coaches' : 'In your Family Hockey folder';
+  return `${where} · ${s.name || bookName(t)}${games ? ` · ${games} game${games === 1 ? '' : 's'}` : ''}${s.dirty ? ' · changes waiting to go to Drive' : ''}`;
+}
+
+function paintBooks() {
+  $('bookList').replaceChildren(...TEAMS.filter(hasBook).map((t) => {
+    const input = h('input', { class: 'kid-number', type: 'text', inputmode: 'numeric', maxlength: '3', id: `num-${t.key}`, value: kidNumber(t.key, bookRecord || cachedRecord()), 'aria-describedby': `numnote-${t.key}` });
+    input.addEventListener('change', () => saveNumber(t, input.value));
+    const actions = [];
+    const state = bookState(t.key);
+    if (t.gameBook.shared && state === 'pick' && pickerReady()) actions.push(h('button', { class: 'btn btn-primary btn-small', type: 'button', onclick: () => pick(t) }, 'Connect the Bulldogs Game Book'));
+    if (t.gameBook.shared && state === 'ready' && cached(t.key).fileId) actions.push(h('button', { class: 'btn btn-small', type: 'button', onclick: () => { forgetBook(t.key); paintBooks(); } }, 'Pick a different file'));
+    return h('li', {},
+      h('span', {},
+        h('strong', {}, `${t.kid} · ${t.gameBook.team}`),
+        h('span', { class: 'small muted block' }, bookLine(t)),
+        h('label', { class: 'row', for: `num-${t.key}` }, `${t.kid}’s jersey number`, input),
+        h('span', { class: 'small muted block', id: `numnote-${t.key}` }, `Used to show ${t.kid}’s goals, assists and points. Saved in your Family Hockey folder, not in the Game Book.`),
+        actions.length ? h('span', { class: 'row' }, ...actions) : null));
+  }));
+}
+
+async function saveNumber(t, value) {
+  const number = rememberKidNumber(t.key, value);
+  $(`num-${t.key}`).value = number;
+  if (!isConnected()) { toast(`Saved on this device. Connect Google to save ${t.kid}’s number for your other devices too.`); return; }
+  try {
+    const lib = await loadLibrary();
+    const kids = { ...(lib.record.kids || {}) };
+    kids[t.key] = { number };
+    const saved = await saveLibrary({ ...lib, record: { ...lib.record, kids } });
+    bookRecord = saved.record;
+    cacheRecord(saved.record);
+    toast(`Saved ${t.kid}’s number.`);
+  } catch (e) { toast(`Saved on this device; couldn’t save it to Drive: ${e.message}`, 7000); }
+}
+
+async function pick(t) {
+  try {
+    const picked = await pickBook(t.key);
+    if (!picked) { toast('Nothing picked. Open the Bulldogs team folder in the picker and tap the Game Book file.', 7000); return; }
+    toast(`Connected: ${picked.name}`);
+    await syncBook(t.key);
+  } catch (e) { toast(e.message, 8000); }
+  paintBooks();
+}
+
+async function syncBooks() {
+  for (const t of TEAMS.filter(hasBook)) { try { await syncBook(t.key); } catch { /* shown in the line */ } }
+  paintBooks();
 }
 
 function setupReset() {
@@ -161,6 +228,8 @@ async function start() {
   setupHeader(onConnected);
   setupView();
   setupTeams();
+  paintBooks();
+  onBookChange(paintBooks);
   setupReset();
   paintGoogle();
   paintTotals(cachedRecord());

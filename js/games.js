@@ -51,6 +51,13 @@ export function rinkLabel(venue) {
 }
 
 // One league row -> one game for a kid's team.
+// The Game Book's key for a league game: Alliance divisions are numbers; club feeds (e.g. bghc-2066) are not.
+export function bookKeyFor(row, team) {
+  const div = String(row.divisionId ?? (/games\/([^/]+)\.json$/.exec(team.feed || '') || [])[1] ?? '');
+  if (row.id == null || !div) return '';
+  return /^\d+$/.test(div) ? `alliance:${row.id}` : `club:${div}:${row.id}`;
+}
+
 export function normalizeGame(row, team) {
   const isHome = row.home === team.feedName;
   const opponent = isHome ? row.away : row.home;
@@ -64,6 +71,7 @@ export function normalizeGame(row, team) {
   }
   return {
     id: `${team.kid.toLowerCase()}-${row.id}`,
+    bookKey: bookKeyFor(row, team),
     kid: team.kid,
     teamLabel: team.label,
     teamKey: team.key,

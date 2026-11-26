@@ -10,6 +10,11 @@ export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly', // read the TeamSnap calendars
 ];
 
+// Google's file picker, used once a season to open the Bulldogs Game Book (the coaches' file in the team folder).
+// The key is restricted in Google Cloud to this site and to the Picker API; it isn't a password.
+export const GOOGLE_API_KEY = '';
+export const GOOGLE_APP_ID = '1061398617166';   // this app's Google Cloud project number
+
 export const SEASON_START = '2026-08-01T00:00:00-04:00';
 export const SEASON_END = '2027-06-01T00:00:00-04:00';
 
@@ -23,6 +28,8 @@ export const TEAMS = [
     feedName: 'Burlington Bulldogs Blue',
     logo: 'logos/49dba036a6a8.png',
     calendarName: 'U10 Burlington Bulldogs Blue',
+    // the coaches' Game Book in the Bulldogs team folder: picked once a season
+    gameBook: { shared: true, team: 'Bulldogs U10 Blue', sheetNames: ['Burlington Bulldogs Blue', 'Bulldogs U10 Blue'] },
   },
   {
     key: 'grace',
@@ -33,5 +40,7 @@ export const TEAMS = [
     feedName: 'Burlington Barracudas',
     logo: 'logos/c3d0e88fbd9e.png',
     calendarName: '2026/27 Cudas U13B',
+    // our own Game Book in the Family Hockey folder
+    gameBook: { shared: false, team: 'Barracudas U13 B', sheetNames: ['Burlington Barracudas', 'Barracudas U13 B', 'Barracudas'] },
   },
 ];

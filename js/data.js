@@ -46,7 +46,7 @@ export async function loadGoogle() {
   if (!isConnected()) return null;
   const [acct, lib, cal] = await Promise.allSettled([about(), loadLibrary(), teamSnapGames(TEAMS)]);
   const out = { about: null, library: null, teamsnap: null, problems: [] };
-  if (acct.status === 'fulfilled') { out.about = acct.value; setAccountEmail(acct.value.user && acct.value.user.emailAddress); } else out.problems.push(`Drive storage: ${acct.reason.message}`);
+  if (acct.status === 'fulfilled') { out.about = acct.value; setAccountEmail(acct.value.user && acct.value.user.emailAddress); if (acct.value.user && acct.value.user.displayName) saveJson('fwp.googleName', acct.value.user.displayName); } else out.problems.push(`Drive storage: ${acct.reason.message}`);
   if (lib.status === 'fulfilled') {
     out.library = lib.value;
     cacheRecord(out.library.record);

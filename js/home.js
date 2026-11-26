@@ -11,6 +11,8 @@ import { cacheRecord } from './data.js';
 import { withRinks, watchUrl } from './rinks.js';
 import { pickRink } from './rink-picker.js';
 import { queuedFor, onQueueChange } from './upload-queue.js';
+import { hasBook, bookOf, keyOf, kidFor, syncBook, onBookChange } from './game-book.js';
+import { gameBookStatus, playerLine } from '../vendor/game-book/0.2.1/ui/rows.js';
 
 const RECENT_PAGE = 12;
 const state = {
@@ -138,6 +140,20 @@ function uploadingCell(game) {
     h('span', { class: 'sub' }, bad ? 'Press Uploads at the top' : `${q.map((i) => i.view).join(' + ')} going to Drive`));
 }
 
+// Under the score: the kid's points from the Game Book, and where they came from ("Lucas: 1 G · 2 A · Official").
+function bookLine(game) {
+  const team = TEAMS.find((t) => t.key === game.teamKey);
+  if (!hasBook(team)) return null;
+  const book = bookOf(team.key);
+  const key = keyOf(game);
+  if (!book || !key || !book.games[key]) return null;
+  const s = gameBookStatus(book, key, { full: false });
+  if (!s.label || s.label === 'Score only') return null;
+  const kid = kidFor(team, state.record);
+  const line = kid ? playerLine(book, key, kid.number) : '';
+  return h('span', { class: 'sub book-chip' }, line ? h('span', { class: 'book-points' }, `${game.kid}: ${line}`) : null, h('span', {}, s.label === 'Official' ? 'Game sheet' : s.label));
+}
+
 function gameRow(game, now, downloaded) {
   const status = videoStatus(game, now, downloaded);
   const selectable = ['ready', 'leaves-soon', 'no-link', 'today'].includes(status.key);
@@ -154,7 +170,7 @@ function gameRow(game, now, downloaded) {
     h('td', { class: 'c-when' }, h('span', { class: 'nowrap' }, dayLabel(game.date)), h('span', { class: 'sub' }, timeLabel(game.time))),
     h('td', { class: 'c-kid' }, h('span', { class: `kid-${game.kid.toLowerCase()}` }, game.kid), h('span', { class: 'sub nowrap' }, game.teamLabel)),
     h('td', { class: 'c-game' }, h('div', { class: 'game-cell' }, logoFor(game), h('div', {}, h('strong', {}, game.opponentLabel), gameTag(game)))),
-    h('td', { class: 'c-result' }, result),
+    h('td', { class: 'c-result' }, result, bookLine(game)),
     h('td', { class: 'c-rink' }, game.rink || h('span', { class: 'muted' }, '—')),
     uploadingCell(game) || h('td', { class: 'c-video' }, h('span', { class: `pill ${PILL[status.key]}` }, status.label), h('span', { class: 'sub' }, statusDetail(game, status))),
     h('td', { class: 'c-action' }, actionFor(game, status)),
@@ -238,6 +254,8 @@ async function refreshGoogle() {
   if (out.teamsnap) state.teamsnap = out.teamsnap;
   if (out.problems.length) { $('googleNote').textContent = out.problems.join(' '); $('googleNote').hidden = false; }
   render();
+  const all = games();
+  for (const t of TEAMS.filter(hasBook)) { try { await syncBook(t.key, all); } catch { /* shown in Settings */ } }
 }
 
 async function start() {
@@ -250,6 +268,7 @@ async function start() {
     render();
   });
   render();
+  onBookChange(() => render());
   try {
     const league = await loadLeague();
     state.league = league.games;

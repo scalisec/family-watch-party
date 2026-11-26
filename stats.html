@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stats · Family Watch Party</title>
+  <meta name="theme-color" content="#07142A">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/logo-tab.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/pages.css">
+  <link rel="stylesheet" href="vendor/game-book/0.2.1/ui/game-book.css">
+  <link rel="stylesheet" href="css/game-book.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="lockup" href="index.html">
+      <img class="app-icon" src="icons/logo.svg" alt="" width="40" height="40">
+      <span>
+        <span class="app-name">Family Watch Party</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.15.0</span>
+      </span>
+    </a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html">Games</a>
+      <a href="clips.html">Clips</a>
+      <a href="stats.html" aria-current="page">Stats</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+    <div class="row">
+      <button id="googleBtn" class="chip chip-btn chip-action" type="button">Connect Google</button>
+    </div>
+  </header>
+
+  <main>
+    <h1>Stats</h1>
+    <div id="kidTabs" class="row" role="group" aria-label="Kid"></div>
+    <section id="bookCard" class="card card-accent" aria-labelledby="book-h" hidden>
+      <h2 id="book-h">Game Book</h2>
+      <p id="bookText" class="muted"></p>
+      <div id="bookActions" class="row"></div>
+    </section>
+    <div id="statsRoot"></div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/stats-page.js"></script>
+</body>
+</html>

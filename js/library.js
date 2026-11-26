@@ -59,6 +59,7 @@ export function normalizeRecord(rec) {
   if (Array.isArray(rec.reels)) out.reels = rec.reels;
   if (rec.rinks && typeof rec.rinks === 'object') out.rinks = rec.rinks;
   if (rec.toDownload && typeof rec.toDownload === 'object') out.toDownload = rec.toDownload;
+  if (rec.kids && typeof rec.kids === 'object') out.kids = rec.kids;   // { lucas: { number: '7' } }: for the Game Book
   return out;
 }
 

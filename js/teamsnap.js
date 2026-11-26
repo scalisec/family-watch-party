@@ -35,6 +35,7 @@ export function parseTeamSnapEvent(ev, team) {
 
   return {
     id: `${team.key}-ts-${ev.id}`,
+    bookKey: `teamsnap:${ev.id}`,
     kid: team.kid,
     teamLabel: team.label,
     teamKey: team.key,

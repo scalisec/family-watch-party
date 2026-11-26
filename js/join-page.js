@@ -19,6 +19,7 @@ import { createWatcher } from './watch.js';
 import { createClipEditor } from './clip-editor.js';
 import { withRinks, watchUrl } from './rinks.js';
 import { pickRink } from './rink-picker.js';
+import { setupSummary } from './game-summary.js';
 
 const gameId = new URLSearchParams(location.search).get('game') || '';
 const VIEWS = ['PANO', 'AUTO', 'Video'];
@@ -534,6 +535,7 @@ async function onConnected() {
   }
   if (out && out.problems.length) toast(out.problems.join(' '), 8000);
   renderAll();
+  if (state.summary) await state.summary.connected(out && out.library ? out.library.record : null);
 }
 
 function wire() {
@@ -587,6 +589,7 @@ async function start() {
   document.title = `${state.game.opponentLabel} · Family Watch Party`;
   loadMarks();
   renderAll();
+  state.summary = setupSummary({ game: state.game, team: state.team, allGames: games, record: state.record });
   if (location.hash === '#guideCard' && !$('guideCard').hidden) $('guideCard').scrollIntoView({ block: 'start' });
   if (isConnected()) await onConnected();
 }

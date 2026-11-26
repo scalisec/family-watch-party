@@ -15,6 +15,8 @@
   <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/import.css">
   <link rel="stylesheet" href="css/join.css">
+  <link rel="stylesheet" href="vendor/game-book/0.2.1/ui/game-book.css">
+  <link rel="stylesheet" href="css/game-book.css">
 </head>
 <body>
   <header class="app-header">
@@ -22,12 +24,13 @@
       <img class="app-icon" src="icons/logo.svg" alt="" width="40" height="40">
       <span>
         <span class="app-name">Family Watch Party</span>
-        <span class="byline">BY BENCH BOSS LABS · V0.14.2</span>
+        <span class="byline">BY BENCH BOSS LABS · V0.15.0</span>
       </span>
     </a>
     <nav class="main-nav" aria-label="Main">
       <a href="index.html" aria-current="page">Games</a>
       <a href="clips.html">Clips</a>
+      <a href="stats.html">Stats</a>
       <a href="settings.html">Settings</a>
     </nav>
     <div class="row">
@@ -49,6 +52,22 @@
     </section>
 
     <p id="pageError" class="error-box" role="alert" hidden></p>
+
+    <div id="gameTabs" class="row game-tabs" role="group" aria-label="Game page" hidden>
+      <button id="tabSummary" class="tab" type="button" aria-pressed="false">Summary</button>
+      <button id="tabVideo" class="tab" type="button" aria-pressed="true">Video: download, join, save</button>
+    </div>
+
+    <div id="summaryTab" hidden>
+      <section id="bookCard" class="card card-accent" aria-labelledby="book-h" hidden>
+        <h2 id="book-h">Game Book</h2>
+        <p id="bookText" class="muted"></p>
+        <div id="bookActions" class="row"></div>
+      </section>
+      <div id="summaryRoot"></div>
+    </div>
+
+    <div id="videoTab">
 
     <section id="guideCard" class="card card-accent" aria-labelledby="guide-h" hidden>
       <div class="section-head">
@@ -121,6 +140,7 @@
         <a id="driveLink" class="btn" target="_blank" rel="noopener">Open the game folder in Drive</a>
       </div>
     </section>
+    </div>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

@@ -16,6 +16,22 @@ Each LiveBarn file counts against your monthly minutes for its full length, so a
 
 An automatic helper (a Chrome extension that downloaded straight to Drive) was built and tested, then set aside to keep the app simpler and more secure. It's kept in git on the branch `auto-helper-0.2.0`.
 
+## Game Book (0.15)
+
+Each kid's team has a **Game Book**: the one record of every game's scorers, assists and penalties, from the GameSheet PDF with corrections on top. The screens are shared with Bulldogs Watch Party ([bench-boss-labs/game-book](https://github.com/bench-boss-labs/game-book), a fixed copy in `vendor/game-book/<version>/`).
+
+- **Game page:** a **Summary** tab (the family summary: score by period, goals, your kid's points, import a game sheet, correct a goal) and a **Video** tab (download, join, save to Drive, as before). A game opens on Video until its full game is in Drive, then on Summary.
+- **Stats page:** your kid's season, game by game, and the team table.
+- **Home:** your kid's points under each game's score.
+- **Settings › Game Book:** each kid's jersey number (kept in the record file, not in the Game Book), and where each book is.
+
+| Team | Game Book file | How the app reaches it |
+| --- | --- | --- |
+| Grace · Barracudas U13 B | `Family Hockey/Game Book – Barracudas U13 B 2026-27.json` | Made by this app |
+| Lucas · Bulldogs U10 Blue | `Game Book – Bulldogs U10 Blue 2026-27.json` in the Bulldogs team folder | Made by Bulldogs Watch Party (another Google Cloud project), so it's picked once a season with Google's file picker (`GOOGLE_API_KEY` in `js/config.js`, restricted to this site and the Picker API). Other devices on the same Google account then find it on their own. |
+
+Each book is kept in the browser too, so it opens at the rink; changes go to Drive when connected and are merged with the coaches' (three-way merge, per goal and correction).
+
 ## Google access
 
 The app runs entirely in the browser and talks only to Google's own API hosts. It asks for two permissions, once per visit when you press **Connect Google**:
@@ -51,6 +67,7 @@ Then open `http://localhost:3000`. (The helper only talks to the live site, so t
 
 ```
 node --test tests/*.test.mjs
+python3 tests/e2e_gamebook.py [screenshot-dir]   # the Game Book in a browser, against a simulated Google (needs Playwright)
 ```
 
 ## Stages

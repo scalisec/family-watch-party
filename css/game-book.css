@@ -1,0 +1,15 @@
+/* Family Watch Party around the Game Book screens (vendor/game-book/<version>/ui/game-book.css does the rest). */
+.game-tabs { margin: 4px 0 0; }
+#summaryTab, #videoTab { display: flex; flex-direction: column; gap: 16px; }
+#summaryTab[hidden], #videoTab[hidden] { display: none; }
+.gbk { --radius: var(--radius-lg); font-family: var(--font-sans); }
+.gbk .gbk-btn, .gbk .gbk-chip, .gbk .gbk-seg button { min-height: 36px; }
+.gbk h2 { font-family: var(--font-display); }
+.book-chip { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.book-points { font-weight: 600; color: var(--accent-text); }
+.kid-number {
+  width: 5em; min-height: 40px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong);
+  background: var(--field); color: var(--ink); font: 600 15px var(--font-sans);
+}
+.kid-number:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#bookList label { gap: 8px; margin-top: 8px; }
