@@ -194,8 +194,18 @@ function renderParts() {
   for (const f of state.local.filter((x) => x.reading || x.blocked)) {
     items.push(partLine(f.file.name, f.reading ? 'Reading…' : f.blocked, h('span', { class: `pill ${f.blocked ? 'pill-work' : 'pill-none'}` }, f.blocked ? 'Not used' : 'Reading'), f.blocked ? [removeBtn(f)] : []));
   }
-  const wrongDay = state.local.filter((f) => f.parsed && f.parsed.date && state.game && f.parsed.date !== state.game.date);
-  if (wrongDay.length) items.push(h('li', {}, h('span', { class: 'small warn-text' }, `${wrongDay.length === 1 ? `${wrongDay[0].file.name} was` : `${wrongDay.length} files were`} recorded on a different day than this game. Check you picked the right files.`)));
+  // Files from another day: a warning and a question, never a stop (0.15.2)
+  const wrongDay = otherDayFiles();
+  if (wrongDay.length && !state.dayOk) {
+    const days = [...new Set(wrongDay.map((f) => dayLabel(f.parsed.date)))].join(', ');
+    items.push(h('li', { class: 'day-warning', id: 'dayWarning' },
+      h('p', { class: 'small warn-text' }, `${wrongDay.length === 1 ? 'This file was' : `These ${wrongDay.length} files were`} recorded on ${days}, but this game is on ${dayLabel(state.game.date)} in the schedule. Are they this game's files?`),
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn btn-small btn-primary', disabled: state.busy, onclick: () => { state.dayOk = true; renderAll(); } }, 'Yes, use them for this game'),
+        h('button', { type: 'button', class: 'btn btn-small', disabled: state.busy, onclick: () => { state.local = state.local.filter((x) => !wrongDay.includes(x)); renderAll(); } }, wrongDay.length === 1 ? 'No, remove it' : 'No, remove them'))));
+  } else if (wrongDay.length) {
+    items.push(h('li', {}, h('span', { class: 'small muted' }, `Using files recorded on ${[...new Set(wrongDay.map((f) => dayLabel(f.parsed.date)))].join(', ')} for this game, as you confirmed.`)));
+  }
   $('partsList').replaceChildren(...items);
   $('partsList').hidden = !items.length;
   $('partsSummary').textContent = total ? `${total} full-game file${total === 1 ? '' : 's'}${clips.length ? ` · ${clips.length} clip${clips.length === 1 ? '' : 's'}` : ''}` : '';
@@ -211,6 +221,10 @@ function kindSelect(f) {
     onchange: (e) => { f.kind = e.target.value; f.blocked = blockReason(f); renderAll(); },
   }, h('option', { value: 'full', selected: f.kind === 'full' }, 'Full game'), h('option', { value: 'clip', selected: f.kind === 'clip' }, 'Clip'));
 }
+function otherDayFiles() {
+  return state.local.filter((f) => f.parsed && f.parsed.date && state.game && !f.blocked && f.parsed.date !== state.game.date);
+}
+
 function removeBtn(f) {
   return h('button', {
     type: 'button', class: 'btn btn-small', disabled: state.busy, 'aria-label': `Remove ${f.file.name}`,
@@ -457,6 +471,13 @@ async function save() {
   const chosen = chosenViews();
   const clips = localClips();
   if (!chosen.length && !clips.length) return;
+  const wrongDay = otherDayFiles();
+  if (wrongDay.length && !state.dayOk) {
+    const days = [...new Set(wrongDay.map((f) => dayLabel(f.parsed.date)))].join(', ');
+    if (!window.confirm(`The files were recorded on ${days}, but this game is on ${dayLabel(state.game.date)} in the schedule.\n\nSave them to this game anyway?`)) return;
+    state.dayOk = true;
+    renderAll();
+  }
   state.busy = true;
   state.abort = new AbortController();
   const signal = state.abort.signal;

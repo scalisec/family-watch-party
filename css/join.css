@@ -99,3 +99,7 @@
 .guide-windows li.done .guide-text strong { text-decoration: line-through; }
 .guide-tick input { width: 20px; height: 20px; }
 .guide-text { flex: 1; min-width: 200px; }
+
+/* 0.15.2: files from another day ask, they don't stop */
+.day-warning { flex-direction: column; align-items: flex-start !important; gap: 8px; padding: 10px 12px; border: 1px solid var(--work); border-radius: var(--radius-sm); background: var(--work-soft); }
+.day-warning p { margin: 0; }
