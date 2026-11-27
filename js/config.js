@@ -12,7 +12,7 @@ export const GOOGLE_SCOPES = [
 
 // Google's file picker, used once a season to open the Bulldogs Game Book (the coaches' file in the team folder).
 // The key is restricted in Google Cloud to this site and to the Picker API; it isn't a password.
-export const GOOGLE_API_KEY = '';
+export const GOOGLE_API_KEY = 'AIzaSyBhrBU2BSe04MsQotyDJyK5d9Cf0hbHQRs';
 export const GOOGLE_APP_ID = '1061398617166';   // this app's Google Cloud project number
 
 export const SEASON_START = '2026-08-01T00:00:00-04:00';
