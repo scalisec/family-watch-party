@@ -2,7 +2,9 @@
 // Reads the parts' sample tables, keeps the samples between the marks (cutting at keyframes),
 // and writes one new MP4 (moov first, so it streams) whose bytes are produced on demand.
 
-export class Mp4Error extends Error {}
+export class Mp4Error extends Error {
+  constructor(message, code = '') { super(message); this.code = code; }   // code 'settings': parts that can't be joined as they are
+}
 
 const CHUNK_SECONDS = 1;
 
@@ -186,15 +188,103 @@ export async function readMp4(reader) {
 // ---------- planning the cut ----------
 const sameBytes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
+// What has to match for parts to join: the codec, picture size and decoder settings (avcC/hvcC/esds...). Boxes that
+// differ from file to file without changing how the video decodes are left out: btrt (each file's own bitrate) and
+// the encoder's name. (0.15.3: LiveBarn's 30-minute files differ in exactly those.)
+const IGNORED = new Set(['btrt']);
+export function codecKey(stsd) {
+  const u8 = stsd;
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const entry = 16;                              // stsd header (8) + version/flags (4) + entry count (4)
+  if (u8.length < entry + 8) return Array.from(u8).join(',');
+  const size = Math.min(dv.getUint32(entry), u8.length - entry);
+  const type = typeAt(u8, entry + 4);
+  const visual = /^(avc[1-4]|hvc1|hev1|vp09|av01|mp4v|encv)$/.test(type);
+  const audio = /^(mp4a|ac-3|ec-3|opus|Opus|alac|fLaC|enca)$/.test(type);
+  const fixed = visual ? 78 : audio ? 28 : -1;
+  if (fixed < 0) return Array.from(u8).join(',');
+  const parts = [type];
+  if (visual) parts.push(`${dv.getUint16(entry + 32)}x${dv.getUint16(entry + 34)}`, dv.getUint16(entry + 8 + 74));   // width x height, depth
+  else parts.push(Array.from(u8.subarray(entry + 8 + 16, entry + 8 + 28)).join(','));   // channels, sample size, rate
+  for (const b of kids(u8, entry + 8 + fixed, entry + size)) {
+    if (IGNORED.has(b.type)) continue;
+    parts.push(b.type + ':' + (b.type === 'esds' ? esdsKey(u8.subarray(b.body, b.end)) : Array.from(u8.subarray(b.body, b.end)).join(',')));
+  }
+  return parts.join('|');
+}
+
+// AAC's esds also carries each file's bitrate; only the object type and the decoder config (AudioSpecificConfig) matter.
+function esdsKey(body) {
+  let objectType = -1;
+  let config = '';
+  const len = (o) => { let n = 0; let i = o; for (let k = 0; k < 4 && i < body.length; k += 1) { const b = body[i]; i += 1; n = (n << 7) | (b & 0x7f); if (!(b & 0x80)) break; } return [n, i]; };
+  const walk = (o, end) => {
+    while (o < end) {
+      const tag = body[o];
+      const [n, at] = len(o + 1);
+      if (tag === 0x03) walk(at + 3 + ((body[at + 2] & 0x80) ? 2 : 0) + ((body[at + 2] & 0x40) ? 1 + body[at + 3] : 0) + ((body[at + 2] & 0x20) ? 2 : 0), at + n);
+      else if (tag === 0x04) { objectType = body[at]; walk(at + 13, at + n); }
+      else if (tag === 0x05) config = Array.from(body.subarray(at, at + n)).join(',');
+      o = at + n;
+    }
+  };
+  try { walk(4, body.length); } catch { return Array.from(body).join(','); }   // 4: version/flags
+  return config ? `${objectType}/${config}` : Array.from(body).join(',');
+}
+
+// H.264 parts whose only difference is the encoder's parameter sets (SPS/PPS, e.g. a restarted encoder picking a new
+// starting quality) can still be joined: each later part's parameter sets are put in front of its first frame, which
+// every H.264 decoder reads. Picture size, codec and NAL length size must still match.
+function avcEntry(stsd) {
+  const entry = 16;
+  if (stsd.length < entry + 8 + 78) return null;
+  const type = typeAt(stsd, entry + 4);
+  if (type !== 'avc1' && type !== 'avc3') return null;
+  const dv = new DataView(stsd.buffer, stsd.byteOffset, stsd.byteLength);
+  const size = Math.min(dv.getUint32(entry), stsd.length - entry);
+  for (const b of kids(stsd, entry + 8 + 78, entry + size)) {
+    if (b.type !== 'avcC') continue;
+    const c = stsd.subarray(b.body, b.end);
+    const lengthSize = (c[4] & 3) + 1;
+    const nals = [];
+    let o = 5;
+    const nSps = c[o] & 0x1f; o += 1;
+    for (let i = 0; i < nSps; i += 1) { const n = (c[o] << 8) | c[o + 1]; nals.push(c.subarray(o + 2, o + 2 + n)); o += 2 + n; }
+    const nPps = c[o]; o += 1;
+    for (let i = 0; i < nPps; i += 1) { const n = (c[o] << 8) | c[o + 1]; nals.push(c.subarray(o + 2, o + 2 + n)); o += 2 + n; }
+    const prefix = concatBytes(nals.map((nal) => { const h = new Uint8Array(lengthSize + nal.length); let n = nal.length; for (let k = lengthSize - 1; k >= 0; k -= 1) { h[k] = n & 0xff; n >>>= 8; } h.set(nal, lengthSize); return h; }));
+    return { type, size: `${dv.getUint16(entry + 32)}x${dv.getUint16(entry + 34)}`, lengthSize, prefix };
+  }
+  return null;
+}
+function concatBytes(list) { const out = new Uint8Array(list.reduce((t, x) => t + x.length, 0)); let o = 0; for (const x of list) { out.set(x, o); o += x.length; } return out; }
+function looseVideoKey(stsd) {
+  return codecKey(stsd).split('|').filter((x) => !x.startsWith('avcC:')).join('|');
+}
+
 export function checkCompatible(infos) {
+  const first0 = infos[0];
+  const a0 = avcEntry(first0.video.stsd);
+  let inband = false;
+  for (const info of infos.slice(1)) {
+    if (info.video.timescale !== first0.video.timescale || sameBytes(info.video.stsd, first0.video.stsd) || codecKey(info.video.stsd) === codecKey(first0.video.stsd)) continue;
+    const a = avcEntry(info.video.stsd);
+    if (a && a0 && a.type === a0.type && a.size === a0.size && a.lengthSize === a0.lengthSize && looseVideoKey(info.video.stsd) === looseVideoKey(first0.video.stsd)) inband = true;
+  }
+  if (inband) for (const info of infos) { const a = avcEntry(info.video.stsd); info.video.inband = a ? a.prefix : null; }
+  else for (const info of infos) info.video.inband = null;
+  checkStrict(infos);
+}
+
+function checkStrict(infos) {
   const [first] = infos;
   for (const info of infos.slice(1)) {
-    if (info.video.timescale !== first.video.timescale || !sameBytes(info.video.stsd, first.video.stsd)) {
-      throw new Mp4Error("These parts were recorded with different video settings, so they can't be joined without re-processing.");
+    if (info.video.timescale !== first.video.timescale || (!info.video.inband && !sameBytes(info.video.stsd, first.video.stsd) && codecKey(info.video.stsd) !== codecKey(first.video.stsd))) {
+      throw new Mp4Error("These parts were recorded with different video settings, so they can't be joined without re-processing.", 'settings');
     }
-    if (Boolean(info.audio) !== Boolean(first.audio)) throw new Mp4Error('Only some of these parts have sound, so they can\'t be joined.');
-    if (info.audio && (info.audio.timescale !== first.audio.timescale || !sameBytes(info.audio.stsd, first.audio.stsd))) {
-      throw new Mp4Error("These parts were recorded with different sound settings, so they can't be joined.");
+    if (Boolean(info.audio) !== Boolean(first.audio)) throw new Mp4Error('Only some of these parts have sound, so they can\'t be joined.', 'settings');
+    if (info.audio && (info.audio.timescale !== first.audio.timescale || (!sameBytes(info.audio.stsd, first.audio.stsd) && codecKey(info.audio.stsd) !== codecKey(first.audio.stsd)))) {
+      throw new Mp4Error("These parts were recorded with different sound settings, so they can't be joined.", 'settings');
     }
   }
 }
@@ -326,7 +416,8 @@ function collect(infos, segments, kind) {
       let d = tr.dur[i];
       if (i === i1 - 1) d = Math.max(1, segLen - used);
       used += d;
-      list.push({ part: seg.part, src: tr.offsets[i], size: tr.sizes[i], dur: d, cto: tr.cto[i], sync: tr.sync[i], seg: seg.part });
+      const prefix = kind === 'video' && i === i0 && seg !== segments[0] && tr.inband ? tr.inband : null;
+      list.push({ part: seg.part, src: tr.offsets[i], size: tr.sizes[i] + (prefix ? prefix.length : 0), dur: d, cto: tr.cto[i], sync: tr.sync[i], seg: seg.part, prefix });
     }
   }
   return list;
@@ -388,10 +479,12 @@ export function buildJoin(parts, cut) {
       c.dst = dst;
       for (let i = c.first; i < c.first + c.count; i += 1) {
         const s = t.list[i];
+        let size = s.size;
+        if (s.prefix) { pieces.push({ lit: s.prefix, size: s.prefix.length, dst }); dst += s.prefix.length; size -= s.prefix.length; }
         const last = pieces[pieces.length - 1];
-        if (last && last.part === s.part && last.src + last.size === s.src && last.dst + last.size === dst) last.size += s.size;
-        else pieces.push({ part: s.part, src: s.src, size: s.size, dst });
-        dst += s.size;
+        if (last && !last.lit && last.part === s.part && last.src + last.size === s.src && last.dst + last.size === dst) last.size += size;
+        else pieces.push({ part: s.part, src: s.src, size, dst });
+        dst += size;
       }
     }
     return { pieces, end: dst };
@@ -416,6 +509,7 @@ export function buildJoin(parts, cut) {
       const pc = pieces[i];
       const from = Math.max(start, pc.dst);
       const to = Math.min(stop, pc.dst + pc.size);
+      if (pc.lit) { out.set(pc.lit.subarray(from - pc.dst, to - pc.dst), from - start); continue; }
       wanted.push({ part: pc.part, src: pc.src + (from - pc.dst), len: to - from, at: from - start });
     }
     const byPart = new Map();

@@ -1,8 +1,9 @@
 // The app's version and release history (newest first). Keep VERSION, package.json,
 // version.json and each page's byline in step: the tests check they match.
-export const VERSION = '0.15.2';
+export const VERSION = '0.15.3';
 
 export const RELEASES = [
+  { version: '0.15.3', date: '2026-11-27', notes: ['Joining: LiveBarn parts that differ only in their bitrate notes or encoder settings now join into one full game, still without re-processing.', 'Parts that really can\'t be joined (different picture size or codec) can now be saved to the game\'s Drive folder as they are: Save offers "Save the parts as they are".'] },
   { version: '0.15.2', date: '2026-11-27', notes: ['Files recorded on a different day than the game no longer just warn: the game page shows both days and asks "Yes, use them for this game" or "No, remove them". Save asks too, if you haven\'t answered.'] },
   { version: '0.15.1', date: '2026-11-27', notes: ['Open in LiveBarn now always uses the same LiveBarn tab, so the app only ever takes one of your 2 LiveBarn streams.', 'While that tab is open, "✕ Close the LiveBarn tab" shows at the top of every page: press it when your downloads have started to free the stream. Downloads already started carry on.'] },
   { version: '0.15.0', date: '2026-11-26', notes: ['Game Book: each game page has a Summary tab with the score by period, goals, assists and penalties, and your kid\'s points. The Video tab is the download, join and save to Drive you had before.', 'Import a game sheet (PDF from GameSheet) or correct a goal right on the Summary tab. Changes are saved once and logged with your name.', 'Grace\'s Barracudas Game Book is kept in your Family Hockey folder. Lucas\'s comes from the Bulldogs coaches\' Game Book: connect it once a season in Settings.', 'New Stats page: your kid\'s season, game by game, and the team table.', 'Settings: add each kid\'s jersey number.'] },

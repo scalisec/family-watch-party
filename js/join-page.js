@@ -13,7 +13,7 @@ import { loadLeague, cachedTeamSnap, cachedRecord, cacheRecord, combine, loadGoo
 import { saveLibrary, downloadFile, ensureFolder, driveReader } from './drive.js';
 import { Mp4Error } from './mp4.js';
 import { createMarker, marksValid, lengthOf, markClock, clockText, cutFor } from './marker.js';
-import { prepareJoin, publishClip, joinedQueueItem, clipQueueItem, queuedOriginal } from './publish.js';
+import { prepareJoin, publishClip, joinedQueueItem, clipQueueItem, partQueueItem, queuedOriginal } from './publish.js';
 import { saveCopy, enqueue, onQueueChange, queuedFor, queueItems } from './upload-queue.js';
 import { streamReady, streamUrl } from './stream.js';
 import { createWatcher } from './watch.js';
@@ -60,7 +60,7 @@ function driveParts() {
 
 // Every view's parts, in time order: Drive parts plus new full-game files from this PC
 // Views with a full game waiting in the upload queue are left out until it's in Drive.
-const queuedViews = () => new Set(queuedFor(gameId).filter((i) => i.kind === 'full').map((i) => i.view));
+const queuedViews = () => new Set(queuedFor(gameId).filter((i) => i.kind === 'full' || i.kind === 'part').map((i) => i.view));
 function views() {
   const out = driveParts();
   for (const v of queuedViews()) delete out[v];
@@ -267,12 +267,22 @@ function renderMake() {
   if (clips.length) items.push(h('li', {}, h('span', {}, h('strong', {}, 'Clips: '), `${clips.length} added as they are, to the game's clips folder`)));
   for (const q of queuedFor(gameId)) {
     const p = q.size ? Math.floor(((q.sent || 0) / q.size) * 100) : 0;
-    items.push(h('li', {}, h('span', {}, h('strong', {}, q.kind === 'full' ? `${q.view}: ` : 'Clip: '), q.kind === 'full' ? `full game waiting to go to Drive (${p}% sent)` : `${q.name} (${p}% sent)`), h('span', { class: 'pill' }, q.state === 'error' ? 'Problem: see Uploads' : 'Uploading')));
+    items.push(h('li', {}, h('span', {}, h('strong', {}, q.kind === 'full' || q.kind === 'part' ? `${q.view}: ` : 'Clip: '), q.kind === 'full' ? `full game waiting to go to Drive (${p}% sent)` : q.kind === 'part' ? `part ${q.name} waiting to go to Drive (${p}% sent)` : `${q.name} (${p}% sent)`), h('span', { class: 'pill' }, q.state === 'error' ? 'Problem: see Uploads' : 'Uploading')));
   }
   for (const view of VIEWS) {
     if (queuedViews().has(view)) continue;
     const done = state.game ? joinedFile(state.record, gameId, view) : null;
     if (done && !all[view]) items.push(h('li', {}, h('span', {}, h('strong', {}, `${view}: `), `full game is in Drive (${done.duration ? formatDuration(done.duration) : formatBytes(done.size)})`), h('span', { class: 'pill pill-good' }, 'Done')));
+  }
+  const cant = state.cantJoin && all[state.cantJoin] ? state.cantJoin : '';
+  if (cant) {
+    const local = all[cant].filter((p) => p.file);
+    items.unshift(h('li', { class: 'day-warning', id: 'cantJoin' },
+      h('p', { class: 'small warn-text' }, `The ${cant} parts were recorded with different video settings, so they can't be joined into one file without re-processing.`),
+      h('p', { class: 'small' }, `You can save the ${local.length} part${local.length === 1 ? '' : 's'} to the game's Drive folder as they are: nothing is cut or joined, and each part plays on its own. The game then counts as downloaded.`),
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn btn-small btn-primary', disabled: state.busy || !local.length, onclick: () => saveParts(cant) }, `Save the ${local.length} part${local.length === 1 ? '' : 's'} as they are`),
+        h('button', { type: 'button', class: 'btn btn-small', disabled: state.busy, onclick: () => { state.cantJoin = ''; renderAll(); } }, 'Not now'))));
   }
   $('makeList').replaceChildren(...items);
   const views_ = chosenViews();
@@ -467,6 +477,42 @@ function setProgress(fraction, text) {
 
 // Save makes the trimmed file and keeps a copy on this PC (a few seconds to a minute), then hands it to
 // the upload queue. The upload carries on in the background, so there's no need to wait on this page.
+// 0.15.3: parts that can't be joined go to Drive as they are
+async function saveParts(view) {
+  const parts = (views()[view] || []).filter((p) => p.file);
+  if (!parts.length) return;
+  if (otherDayFiles().length && !state.dayOk) {
+    const days = [...new Set(otherDayFiles().map((f) => dayLabel(f.parsed.date)))].join(', ');
+    if (!window.confirm(`The files were recorded on ${days}, but this game is on ${dayLabel(state.game.date)} in the schedule.\n\nSave them to this game anyway?`)) return;
+    state.dayOk = true;
+  }
+  state.busy = true;
+  $('makeProgress').hidden = false;
+  renderAll();
+  let done = 0;
+  try {
+    for (const [i, part] of parts.entries()) {
+      const localName = await saveCopy(part.file, (got, size) => setProgress(got / size, `${view} part ${i + 1} of ${parts.length}: getting it ready for upload, ${formatBytes(got)} of ${formatBytes(size)}…`));
+      await enqueue({ ...partQueueItem({ part, game: state.game, team: state.team, view, index: i, count: parts.length }), localName });
+      state.local = state.local.filter((f) => f !== part);
+      done += 1;
+    }
+    delete state.marks[view];
+    state.cantJoin = '';
+  } catch (err) {
+    showError(`Couldn't get the parts ready: ${err.message}`);
+  } finally {
+    state.busy = false;
+    $('makeProgress').hidden = true;
+    if (state.marker && !Object.keys(views()).length) { state.marker.destroy(); state.marker = null; }
+    renderAll();
+  }
+  if (done) {
+    $('doneText').textContent = `Uploading to Drive: ${done} ${view} part${done === 1 ? '' : 's'}, as they are. It carries on in the background; press Uploads at the top to see how it's going. ${isConnected() ? '' : 'Connect Google at the top to start the upload. '}Keep the app open on this PC until it's done.`;
+    $('doneCard').hidden = false;
+  }
+}
+
 async function save() {
   const chosen = chosenViews();
   const clips = localClips();
@@ -493,7 +539,7 @@ async function save() {
       const parts = all[view];
       const { joined, used } = await prepareJoin(parts, cutFor(all, state.marks, view, state.whole), getSource, (what, got, size) => {
         setProgress(0, `${view}: ${what}${got ? ` (${formatBytes(got)} of ${formatBytes(size)})` : ''}…`);
-      });
+      }).catch((e) => { if (e instanceof Mp4Error) e.view = view; throw e; });
       if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
       const localName = await saveCopy(joined, (done, size) => {
         if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
@@ -514,6 +560,7 @@ async function save() {
   } catch (err) {
     if (err.name === 'AbortError') toast('Stopped. Anything already in the uploads carries on.');
     else if (err instanceof NotConnectedError) toast('Google sign-in ran out. Press Reconnect Google, then Save again.', 8000);
+    else if (err instanceof Mp4Error && err.code === 'settings') { state.cantJoin = err.view || chosen[0]; showError(''); }
     else if (err instanceof Mp4Error) showError(err.message);
     else showError(`Couldn't get the file ready: ${err.message}`);
   } finally {

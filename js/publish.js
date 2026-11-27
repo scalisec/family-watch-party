@@ -70,6 +70,23 @@ export function joinedQueueItem({ joined, used, parts, game, team, view }) {
   };
 }
 
+// A full-game part saved as it is (0.15.3: when parts can't be joined). It lands in the game's full-game folder and
+// counts as the game's video; it can still be joined later if that becomes possible.
+export function partQueueItem({ part, game, team, view, index, count }) {
+  const name = safeName(part.file.name);
+  return {
+    kind: 'part', gameId: game.id, view, name, size: part.file.size, type: part.file.type || 'video/mp4',
+    label: `${game.date} ${game.opponentLabel} · ${view} part ${index + 1} of ${count}`,
+    folderPath: folderPath(game, team, 'full'),
+    trashIds: [],
+    entry: {
+      view, joined: false, duration: part.duration ? Math.round(part.duration) : null,
+      start: part.clock != null ? Math.floor(part.clock / 60) : null, startSec: part.clock != null ? Math.round(part.clock) : null,
+      original: { name: part.file.name, size: part.file.size, lastModified: part.file.lastModified },
+    },
+  };
+}
+
 export function clipQueueItem({ file, duration, game, team, extra = {} }) {
   const name = safeName(file.name);
   return {

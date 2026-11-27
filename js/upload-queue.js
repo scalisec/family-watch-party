@@ -213,7 +213,9 @@ async function finish(item, driveFile, size) {
   const entry = { ...item.entry, driveId: driveFile.id, name: item.name, size };
   const record = item.kind === 'full'
     ? replaceWithJoined(lib.record, item.gameId, item.trashIds || [], entry)
-    : addFile(lib.record, item.gameId, { kind: 'clip', view: '', ...entry });
+    : item.kind === 'part'
+      ? addFile(lib.record, item.gameId, { kind: 'full', ...entry, joined: false })
+      : addFile(lib.record, item.gameId, { kind: 'clip', view: '', ...entry });
   await saveLibrary({ ...lib, record });
   cacheRecord(record);
   for (const id of item.trashIds || []) { try { await trashFile(id); } catch { /* left in Drive */ } }
