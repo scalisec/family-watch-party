@@ -1,3 +1,4 @@
+import { liveBarnLink } from './livebarn-tab.js';
 import { TEAMS, DATA_BASE } from './config.js';
 import { videoStatus, splitGames, summarize, dayLabel, timeLabel } from './games.js';
 import { downloadedIds, gameSummary, totals } from './library.js';
@@ -81,7 +82,7 @@ function actionFor(game, status) {
   const page = `join.html?game=${encodeURIComponent(game.id)}`;
   const link = (text, href) => h('a', { class: 'small action-link', href }, text);
   const lb = game.liveBarn && status.key !== 'upcoming' && status.key !== 'expired'
-    ? h('a', { class: 'small action-link', href: watchUrl(game), target: '_blank', rel: 'noopener' }, 'Open in LiveBarn ↗') : null;
+    ? liveBarnLink(h, watchUrl(game), { class: 'small action-link' }) : null;
   const change = game.liveBarn && game.liveBarn.picked
     ? h('button', { type: 'button', class: 'linkish small action-link', onclick: () => openPicker(game) }, 'Change rink') : null;
   if (status.key === 'downloaded') {

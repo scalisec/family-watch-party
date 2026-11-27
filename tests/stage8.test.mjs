@@ -60,7 +60,8 @@ test('a picked rink gives the game a LiveBarn link; the schedule\'s own link alw
 test('home and game pages use picked rinks and offer Open in LiveBarn', () => {
   const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
   assert.match(read('js/home.js'), /withRinks\(/);
-  assert.match(read('js/home.js'), /Open in LiveBarn/);
+  assert.match(read('js/home.js'), /liveBarnLink\(/);   // Open in LiveBarn, in the shared LiveBarn tab (0.15.1)
+  assert.match(read('js/livebarn-tab.js'), /Open in LiveBarn/);
   assert.match(read('js/join-page.js'), /watchUrl\(/);
   assert.doesNotMatch(read('js/rink-picker.js'), /innerHTML/);
 });

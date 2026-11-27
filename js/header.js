@@ -1,4 +1,5 @@
 // The Google button and LiveBarn helper status in the header, shared by every page.
+import { liveBarnTabOpen, closeLiveBarn, onLiveBarnTabChange } from './livebarn-tab.js';
 import { $, toast } from './ui.js';
 import { connect, isConnected, wasConnected, accountEmail, onChange } from './google.js';
 import { h } from './ui.js';
@@ -60,9 +61,22 @@ export function setupHeader(onConnected) {
   paint();
 
   setupUploads(btn);
+  setupLiveBarnChip(btn);
   registerApp();
   quietUpdateCheck();
 
+}
+
+// ---------- the app's LiveBarn tab: one stream, closed from any page ----------
+function setupLiveBarnChip(googleBtn) {
+  const chip = h('button', { type: 'button', class: 'chip chip-btn chip-action', id: 'livebarnClose', hidden: true, title: 'Each open LiveBarn tab uses one of your 2 streams' }, '✕ Close the LiveBarn tab');
+  googleBtn.parentNode.insertBefore(chip, googleBtn);
+  const paint = () => { chip.hidden = !liveBarnTabOpen(); };
+  chip.addEventListener('click', () => { closeLiveBarn(); toast('LiveBarn tab closed: that stream is free. Downloads Chrome already started carry on.'); });
+  onLiveBarnTabChange(paint);
+  window.addEventListener('focus', paint);
+  window.addEventListener('storage', (e) => { if (e.key === 'fwp.livebarnTab') paint(); });
+  paint();
 }
 
 // ---------- the Uploads button and panel ----------

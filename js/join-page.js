@@ -1,5 +1,6 @@
 // A game's page: bring in its files from this PC (or use parts already in Drive), mark puck drop and
 // the final buzzer, and save one full-game file per camera view to Drive. Clips go up as they are.
+import { liveBarnLink } from './livebarn-tab.js';
 import { TEAMS } from './config.js';
 import { dayLabel, timeLabel } from './games.js';
 import { partsByView, joinedFile, setMarks, clockSec, alreadyImported, folderPath, scheduleMarks, setToDownload, downloadedIds } from './library.js';
@@ -379,7 +380,7 @@ function renderGuide() {
     h('span', { class: 'guide-text' },
       h('strong', {}, `${clockLabel(w.start)} window`),
       h('span', { class: 'small muted' }, w.extra ? ` · the whole window (game ran long)` : ` · take the file(s) covering ${clockLabel(w.from)}–${clockLabel(w.to)}`)),
-    h('a', { class: 'btn btn-small', href: w.url, target: '_blank', rel: 'noopener', onclick: () => { const s = guideState(); s.opened = { ...(s.opened || {}), [w.start]: true }; saveGuide(s); } }, 'Open in LiveBarn ↗'))));
+    liveBarnLink(h, w.url, { class: 'btn btn-small', onclick: () => { const s = guideState(); s.opened = { ...(s.opened || {}), [w.start]: true }; saveGuide(s); } }))));
   $('guideNote').textContent = left ? '' : 'All windows ticked: now press Pick files below.';
 }
 
@@ -407,7 +408,7 @@ function renderLinks() {
   if (!g) { $('gameLinks').replaceChildren(); return; }
   const played = g.startMs <= Date.now();
   const items = [];
-  if (g.liveBarn && played) items.push(h('a', { class: 'btn btn-small', href: watchUrl(g), target: '_blank', rel: 'noopener' }, 'Open in LiveBarn ↗'));
+  if (g.liveBarn && played) items.push(liveBarnLink(h, watchUrl(g), { class: 'btn btn-small' }));
   if (g.liveBarn && g.liveBarn.picked) items.push(h('button', { type: 'button', class: 'btn btn-small', onclick: openPicker }, `Change rink (LiveBarn #${g.liveBarn.surfaceId})`));
   if (!g.liveBarn) items.push(h('button', { type: 'button', class: 'btn btn-small', onclick: openPicker }, 'Pick the LiveBarn rink'));
   $('gameLinks').replaceChildren(...items);
