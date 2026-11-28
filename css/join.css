@@ -92,13 +92,6 @@
 @media (max-width: 900px) { .clip-editor-grid { grid-template-columns: 1fr; } }
 
 /* Download guide */
-.guide-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
-.guide-windows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.guide-windows li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); flex-wrap: wrap; }
-.guide-windows li.done { opacity: .6; }
-.guide-windows li.done .guide-text strong { text-decoration: line-through; }
-.guide-tick input { width: 20px; height: 20px; }
-.guide-text { flex: 1; min-width: 200px; }
 
 /* 0.15.2: files from another day ask, they don't stop */
 .day-warning { flex-direction: column; align-items: flex-start !important; gap: 8px; padding: 10px 12px; border: 1px solid var(--work); border-radius: var(--radius-sm); background: var(--work-soft); }

@@ -4,13 +4,15 @@ A personal app for downloading Lucas's and Grace's hockey games from LiveBarn (P
 
 Live site: https://scalisec.github.io/family-watch-party/
 
-## Downloading from LiveBarn (guided)
+## Downloading from LiveBarn
 
 There's no browser extension: you download from LiveBarn yourself, and the app does the rest.
 
-1. On a played game, press **Download guide** (or ＋ to put it on the **To-download list**, from your phone or PC).
-2. The guide lists the 30-minute LiveBarn windows the game covers, each with an **Open in LiveBarn** button at the right rink and time, and which part of each window to take. In LiveBarn: **PANO**, then **Download → Download 30 minute clip**, and download the files covering those times. Save them wherever you like.
-3. Back on the game page, **Pick files** (opens in Downloads). The app matches the files, pre-sets puck drop and the final buzzer from the schedule, and saves one trimmed file per view to `Family Hockey › <kid> › <season team> › <date opponent> › full game`.
+1. On a played game, press **Open in LiveBarn** (at the right rink and start time), or ＋ to put the game on the **To-download list** from your phone or PC. Every LiveBarn button reuses one LiveBarn tab, and **✕ Close the LiveBarn tab** at the top frees that stream.
+2. In LiveBarn: **PANO**, then **Download → Download 30 minute clip**, for each 30-minute window the game covers. Save the files wherever you like.
+3. Back on the game page's **Video** tab, **Pick files**. The app matches the files, pre-sets puck drop and the final buzzer from the schedule, and saves one trimmed file per view to `Family Hockey › <kid> › <season team> › <date opponent> › full game`.
+
+(The step-by-step download guide card was removed in 0.15.4.)
 
 Each LiveBarn file counts against your monthly minutes for its full length, so a 1-hour game uses up to about 90 minutes.
 

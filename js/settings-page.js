@@ -11,8 +11,6 @@ import { loadLibrary, saveLibrary } from './drive.js';
 import { cacheRecord } from './data.js';
 import { hasBook, bookState, cached, syncBook, pickBook, pickerReady, forgetBook, kidNumber, rememberKidNumber, bookName, onBookChange } from './game-book.js';
 
-export const DEFAULT_VIEW_KEY = 'fwp.defaultView';
-export function defaultView() { return readSaved(DEFAULT_VIEW_KEY, 'PANO') === 'AUTO' ? 'AUTO' : 'PANO'; }
 
 function paintGoogle() {
   const on = isConnected();
@@ -53,17 +51,6 @@ async function onConnected() {
   paintGoogle();
   paintBooks();
   syncBooks();
-}
-
-function setupView() {
-  const current = defaultView();
-  for (const input of document.querySelectorAll('input[name="view"]')) {
-    input.checked = input.value === current;
-    input.addEventListener('change', () => {
-      save(DEFAULT_VIEW_KEY, input.value);
-      $('viewNote').textContent = `Saved. The download guide will ask for ${input.value}. (Importing works with either; the app tells PANO and AUTO apart by the picture size.)`;
-    });
-  }
 }
 
 function setupTeams() {
@@ -156,8 +143,7 @@ function setupReset() {
     armed = false;
     $('resetBtn').textContent = 'Reset saved info';
     $('resetNote').textContent = 'Done. This browser starts fresh; your files in Drive are unchanged.';
-    setupView();
-    paintGoogle();
+      paintGoogle();
     paintTotals(cachedRecord());
   });
 }
@@ -226,7 +212,6 @@ function setupVersion() {
 
 async function start() {
   setupHeader(onConnected);
-  setupView();
   setupTeams();
   paintBooks();
   onBookChange(paintBooks);

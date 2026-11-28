@@ -48,9 +48,9 @@ function renderTodo(all) {
   const list = toDownloadGames(state.record, all);
   $('todoValue').textContent = list.length ? `${list.length} game${list.length === 1 ? '' : 's'}` : 'Nothing on it';
   $('todoList').replaceChildren(...list.slice(0, 4).map((g) => h('li', {},
-    h('a', { href: `join.html?game=${encodeURIComponent(g.id)}#guideCard` }, `${dayLabel(g.date)} · ${g.kid} · ${g.opponentLabel}`),
+    h('a', { href: `join.html?game=${encodeURIComponent(g.id)}#download` }, `${dayLabel(g.date)} · ${g.kid} · ${g.opponentLabel}`),
     h('button', { type: 'button', class: 'chip-x', 'aria-label': `Take ${g.opponentLabel} off the list`, onclick: () => toggleList(g) }, '×'))));
-  $('todoNote').textContent = list.length > 4 ? `and ${list.length - 4} more (marked ✓ below)` : list.length ? 'Open one for its download guide.' : 'Press ＋ on a game, here or on your phone, and it waits here for when you\'re at the PC.';
+  $('todoNote').textContent = list.length > 4 ? `and ${list.length - 4} more (marked ✓ below)` : list.length ? 'Open one to download it.' : 'Press ＋ on a game, here or on your phone, and it waits here for when you\'re at the PC.';
 }
 
 async function openPicker(game) {
@@ -91,7 +91,7 @@ function actionFor(game, status) {
       : h('a', { class: 'btn btn-small', href: page }, 'Open');
   }
   if (status.key === 'ready' || status.key === 'leaves-soon') {
-    return [h('a', { class: 'btn btn-primary btn-small', href: `${page}#guideCard` }, 'Download guide'), lb, link('Import files', page), change];
+    return [game.liveBarn ? liveBarnLink(h, watchUrl(game), { class: 'btn btn-primary btn-small' }) : null, link('Import files', `${page}#download`), change];
   }
   if (status.key === 'no-link') {
     return [h('button', { type: 'button', class: 'btn btn-small', onclick: () => openPicker(game) }, 'Pick rink'), link('Import files', page)];
@@ -233,7 +233,7 @@ function render() {
   const ready = mine.filter((g) => ['ready', 'leaves-soon'].includes(videoStatus(g, now, downloaded).key)).sort((a, b) => a.startMs - b.startMs);
   $('nextGuide').hidden = !ready.length;
   if (ready.length) {
-    $('nextGuide').href = `join.html?game=${encodeURIComponent(ready[0].id)}#guideCard`;
+    $('nextGuide').href = `join.html?game=${encodeURIComponent(ready[0].id)}#download`;
     $('readyNote').textContent = `Oldest first: ${dayLabel(ready[0].date)} · ${ready[0].kid} · ${ready[0].opponentLabel}. Each game uses up to about 90 minutes of LiveBarn time.`;
   } else $('readyNote').textContent = '';
   renderTodo(all);

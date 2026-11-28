@@ -1,8 +1,9 @@
 // The app's version and release history (newest first). Keep VERSION, package.json,
 // version.json and each page's byline in step: the tests check they match.
-export const VERSION = '0.15.3';
+export const VERSION = '0.15.4';
 
 export const RELEASES = [
+  { version: '0.15.4', date: '2026-11-28', notes: ['The Download from LiveBarn guide card is gone from the game page. Open in LiveBarn and ＋ Add to To-download list are now at the top of the game, next to Change rink.', 'On the Games list, a game ready to download shows Open in LiveBarn and Import files.'] },
   { version: '0.15.3', date: '2026-11-27', notes: ['Joining: LiveBarn parts that differ only in their bitrate notes or encoder settings now join into one full game, still without re-processing.', 'Parts that really can\'t be joined (different picture size or codec) can now be saved to the game\'s Drive folder as they are: Save offers "Save the parts as they are".'] },
   { version: '0.15.2', date: '2026-11-27', notes: ['Files recorded on a different day than the game no longer just warn: the game page shows both days and asks "Yes, use them for this game" or "No, remove them". Save asks too, if you haven\'t answered.'] },
   { version: '0.15.1', date: '2026-11-27', notes: ['Open in LiveBarn now always uses the same LiveBarn tab, so the app only ever takes one of your 2 LiveBarn streams.', 'While that tab is open, "✕ Close the LiveBarn tab" shows at the top of every page: press it when your downloads have started to free the stream. Downloads already started carry on.'] },

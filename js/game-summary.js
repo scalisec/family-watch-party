@@ -19,7 +19,7 @@ export function setupSummary({ game, team, allGames, record }) {
   // ---------- tabs: Video until the full game is in Drive, then Summary (a tab picked here is remembered for this game) ----------
   $('gameTabs').hidden = false;
   const remembered = (() => { try { return JSON.parse(sessionStorage.getItem(TAB_KEY) || '{}')[game.id]; } catch { return null; } })();
-  let tab = location.hash === '#guideCard' ? 'video' : remembered || (downloadedIds(record).has(game.id) ? 'summary' : 'video');
+  let tab = (location.hash === '#download' || location.hash === '#guideCard') ? 'video' : remembered || (downloadedIds(record).has(game.id) ? 'summary' : 'video');
   function showTab(t, rememberIt) {
     tab = t;
     $('tabSummary').setAttribute('aria-pressed', String(t === 'summary'));
